@@ -223,6 +223,8 @@ def _load_relation_data(raw_relation_data: dict) -> dict:
 
 
 class GrafanaUrlAvailableEvent(EventBase):
+    """Charm event triggered when provider charm extracts grafana url from relation data"""
+
     def __init__(self, handle, grafana_url: str, relation_id: int):
         super().__init__(handle)
         self.grafana_url = grafana_url
@@ -264,6 +266,13 @@ class GrafanaAuthProvides(Object):
         )
 
     def _build_conf_dict(self, auth_type, **kwargs):
+        """Builds a dictionary for grafana authentication that matches the json schema of the provider.
+        Args:
+            auth_type (str): authentication type to be set in the configuration dict.
+            kwargs: key and value pairs provided to configure authentication mode.
+        Returns:
+            dict: Authentication configuration as a dictionary.
+        """
         conf_dict = dict()
         conf_dict["auth"]= {auth_type:{ key:value for key, value in kwargs.items()}}
         return conf_dict
@@ -283,6 +292,8 @@ class GrafanaAuthProvides(Object):
             relation_data["grafana_auth"] = json.dumps(self._auth_conf)
 
     def _on_grafana_auth_relation_changed(self,event: RelationChangedEvent):
+        """extracts grafana url from relation data and emits grafana_url_available event
+        """
         if not self._charm.unit.is_leader():
             return
         relation_data = _load_relation_data(event.relation.data[event.app])  # type: ignore[index]
@@ -336,6 +347,8 @@ class AuthConfAvailableEvent(EventBase):
 
 
 class AuthConfUnrequiredEvent(EventBase):
+    """Charm event triggered when the auth config set by this relation becomes unrequired"""
+
     def __init__(self, handle, unrequired_auth_modes: list, relation_id: int):
         super().__init__(handle)
         self.unrequired_auth_modes = unrequired_auth_modes
@@ -362,6 +375,7 @@ class GrafanaAuthRequirerCharmEvents(CharmEvents):
 
 
 class GrafanaAuthRequires(Object):
+    """Grafana authentication configuration requirer class to be initialized by grafana-auth requirers"""
 
     on = GrafanaAuthRequirerCharmEvents()
 
@@ -381,6 +395,12 @@ class GrafanaAuthRequires(Object):
         )
 
     def _build_url_dict(self, url: str):
+        """builds a dictionary that follows the json schema of the requirer.
+        Args:
+            url (str): grafana url
+        Returns:
+            dict: dictionary that contains Grafana url and follows the requirer's json schema.
+        """
         url_dict = dict()
         url_dict["url"]= url
         return url_dict

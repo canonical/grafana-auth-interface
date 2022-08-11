@@ -2,7 +2,7 @@
 This library implements the grafana-auth relation interface, it contains the Requires and Provides classes for handling
 the interface.
 This library is designed to allow charms to configure authentication to Grafana, 
-the provider will set the authentication mode that it needs and will pass the neccessaray configuration of that authentication mode.
+the provider will set the authentication mode that it needs and will pass the necessary configuration of that authentication mode.
 The requirer will consume the authentication configuration to authenticate to Grafana.
 
 ## Getting Started
@@ -12,6 +12,7 @@ charmcraft fetch-lib charms.grafana_auth_interface.v0.grafana_auth_interface
 ```
 You will also need to add the following library to the charm's `requirements.txt` file:
 - jsonschema
+
 ### Provider charm
 Example:
 ```python
@@ -314,7 +315,7 @@ class GrafanaAuthProvides(Object):
 
 
 class AuthConfAvailableEvent(EventBase):
-    """Charm Event triggered when a Authentication config is ready."""
+    """Charm Event triggered when Authentication config is ready."""
 
     def __init__(self, handle, auth_conf: dict, relation_id: int):
         super().__init__(handle)
@@ -385,7 +386,7 @@ class GrafanaAuthRequires(Object):
         return url_dict
 
     def _on_grafana_auth_relation_changed(self, event):
-        """Handler triggerred on relation changed events.
+        """Handler triggered on relation changed events.
         Args:
             event: Juju event
         Returns:

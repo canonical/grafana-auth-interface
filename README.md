@@ -12,7 +12,7 @@ This library can be used by any charm requiring or providing this interface. Fro
 root directory, run:
 
 ```bash
-todo
+charmcraft fetch-lib charms.grafana_auth_interface.v0.grafana_auth_interface
 ```
 
 ## Relations

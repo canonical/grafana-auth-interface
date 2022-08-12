@@ -4,7 +4,7 @@
 
 This project contains libraries for the grafana-auth relationship. It contains both the provider and the requirer side of them.
 
-> Note: The charm located here is a placeholder charm and should not be packed nor deployed.
+> Warning: The charm located here is a placeholder charm and should not be packed nor deployed.
 
 ## Usage
 
@@ -14,6 +14,9 @@ root directory, run:
 ```bash
 charmcraft fetch-lib charms.grafana_auth_interface.v0.grafana_auth_interface
 ```
+
+Add the following libraries to the charm's `requirements.txt` file:
+- jsonschema
 
 ## Relations
 

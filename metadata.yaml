@@ -1,8 +1,6 @@
 # Copyright 2022 Ubuntu
 # See LICENSE file for licensing details.
 
-# For a complete list of supported options, see:
-# https://juju.is/docs/sdk/metadata-reference
 name: grafana-auth-interface
 display-name: |
   grafana-auth-interface

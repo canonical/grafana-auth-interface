@@ -1,3 +1,6 @@
+# Copyright 2022 Canonical Ltd.
+# See LICENSE file for licensing details.
+
 """grafana-auth interface library.
 This library implements the grafana-auth relation interface, it contains the Requires and Provides classes for handling
 the interface.
@@ -259,7 +262,7 @@ class GrafanaAuthProvides(Object):
         self._relationship_name = relationship_name
         self._auth_conf = self._build_conf_dict(auth_type, **kwargs)
         self.framework.observe(
-            charm.on[relationship_name].relation_joined, self._set_auth_config_in_realtion_data
+            charm.on[relationship_name].relation_joined, self._set_auth_config_in_relation_data
         )
         self.framework.observe(
             charm.on[relationship_name].relation_changed, self._on_grafana_auth_relation_changed
@@ -277,7 +280,7 @@ class GrafanaAuthProvides(Object):
         conf_dict["auth"]= {auth_type:{ key:value for key, value in kwargs.items()}}
         return conf_dict
 
-    def _set_auth_config_in_realtion_data(self, event: RelationJoinedEvent) -> None:
+    def _set_auth_config_in_relation_data(self, event: RelationJoinedEvent) -> None:
         """Adds authentication config to relation data.
         """
         if not self._charm.unit.is_leader():
@@ -346,7 +349,7 @@ class AuthConfAvailableEvent(EventBase):
         self.relation_id = snapshot["relation_id"]
 
 
-class AuthConfRevokedEvent(EventBase):
+class d(EventBase):
     """Charm event triggered when the auth config set by this relation is revoked"""
 
     def __init__(self, handle, revoked_auth_modes: list, relation_id: int):
@@ -383,7 +386,7 @@ class GrafanaAuthRequires(Object):
         super().__init__(charm, relationship_name)
         self._charm = charm
         self._relationship_name = relationship_name
-        self._grafana_url = self._build_url_dict(grafana_url)
+        self._grafana_url = {"url": url}
         self.framework.observe(
             charm.on[relationship_name].relation_changed, self._on_grafana_auth_relation_changed
         )
@@ -391,19 +394,8 @@ class GrafanaAuthRequires(Object):
             charm.on[relationship_name].relation_departed, self._on_grafana_auth_relation_departed
         )
         self.framework.observe(
-            charm.on[relationship_name].relation_joined, self._set_grafana_url_in_realtion_data
+            charm.on[relationship_name].relation_joined, self._set_grafana_url_in_relation_data
         )
-
-    def _build_url_dict(self, url: str):
-        """builds a dictionary that follows the json schema of the requirer.
-        Args:
-            url (str): grafana url
-        Returns:
-            dict: dictionary that contains Grafana url and follows the requirer's json schema.
-        """
-        url_dict = dict()
-        url_dict["url"]= url
-        return url_dict
 
     def _on_grafana_auth_relation_changed(self, event):
         """Handler triggered on relation changed events.
@@ -450,7 +442,7 @@ class GrafanaAuthRequires(Object):
         revoked_auth_modes = list(current_auth_conf.get("auth").keys())
         self.on.grafana_auth_config_revoked.emit(revoked_auth_modes)
 
-    def _set_grafana_url_in_realtion_data(self, event: RelationJoinedEvent) -> None:
+    def _set_grafana_url_in_relation_data(self, event: RelationJoinedEvent) -> None:
         """Adds Grafana URL to relation data.
         """
         if not self._charm.unit.is_leader():

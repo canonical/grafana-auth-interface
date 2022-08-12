@@ -94,7 +94,7 @@ class TestGrafanaAuthProvides(unittest.TestCase):
             self.requirer_app: {},
         }
         event.app = self.requirer_app
-        self.grafana_auth_provides._set_auth_config_in_realtion_data(event)
+        self.grafana_auth_provides._set_auth_config_in_relation_data(event)
         actual_conf_dict = _load_relation_data(event.relation.data[event.app]).get("grafana_auth")
         self.assertDictEqual(expected_conf_dict, actual_conf_dict)  # type: ignore[arg-type]
 
@@ -107,7 +107,7 @@ class TestGrafanaAuthProvides(unittest.TestCase):
         event.relation.data = {
             self.requirer_app: {},
         }
-        self.grafana_auth_provides._set_auth_config_in_realtion_data(event)
+        self.grafana_auth_provides._set_auth_config_in_relation_data(event)
         relation_data = _load_relation_data(event.relation.data[event.app])
         self.assertNotIn("grafana_auth", relation_data)
 
@@ -191,7 +191,7 @@ class TestGrafanaAuthRequires(unittest.TestCase):
             self.provider_app: {},
         }
         event.app = self.provider_app
-        self.grafana_auth_requires._set_grafana_url_in_realtion_data(event)
+        self.grafana_auth_requires._set_grafana_url_in_relation_data(event)
         actual_grafana_url = _load_relation_data(event.relation.data[event.app]).get("grafana_url")
         self.assertDictEqual(expected_grafana_url, actual_grafana_url)  # type: ignore[arg-type]
 
@@ -205,7 +205,7 @@ class TestGrafanaAuthRequires(unittest.TestCase):
             self.provider_app: {},
         }
         event.app = self.provider_app
-        self.grafana_auth_requires._set_grafana_url_in_realtion_data(event)
+        self.grafana_auth_requires._set_grafana_url_in_relation_data(event)
         relation_data = _load_relation_data(event.relation.data[event.app])
         self.assertNotIn("grafana_url", relation_data)
 

@@ -349,7 +349,7 @@ class AuthConfAvailableEvent(EventBase):
         self.relation_id = snapshot["relation_id"]
 
 
-class d(EventBase):
+class AuthConfRevokedEvent(EventBase):
     """Charm event triggered when the auth config set by this relation is revoked"""
 
     def __init__(self, handle, revoked_auth_modes: list, relation_id: int):
@@ -386,7 +386,7 @@ class GrafanaAuthRequires(Object):
         super().__init__(charm, relationship_name)
         self._charm = charm
         self._relationship_name = relationship_name
-        self._grafana_url = {"url": url}
+        self._grafana_url = {"url": grafana_url}
         self.framework.observe(
             charm.on[relationship_name].relation_changed, self._on_grafana_auth_relation_changed
         )

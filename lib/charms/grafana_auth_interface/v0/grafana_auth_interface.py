@@ -288,7 +288,7 @@ class GrafanaAuthProvides(Object):
         grafana_auth_relation = self.model.get_relation(
             relation_name=self._relationship_name, relation_id=event.relation.id
         )
-        relation_data = event.relation.data[event.app]  # type: ignore[index]
+        relation_data = event.relation.data[event.app]
         relation_data_dict = _load_relation_data(relation_data)
         current_auth_conf = relation_data_dict.get("grafana_auth")
         if not current_auth_conf:
@@ -299,7 +299,7 @@ class GrafanaAuthProvides(Object):
         """
         if not self._charm.unit.is_leader():
             return
-        relation_data = _load_relation_data(event.relation.data[event.app])  # type: ignore[index]
+        relation_data = _load_relation_data(event.relation.data[event.app])
         if not relation_data:
             logger.info("No relation data")
             return
@@ -450,7 +450,7 @@ class GrafanaAuthRequires(Object):
         grafana_auth_relation = self.model.get_relation(
             relation_name=self._relationship_name, relation_id=event.relation.id
         )
-        relation_data = event.relation.data[event.app]  # type: ignore[index]
+        relation_data = event.relation.data[event.app]
         relation_data["grafana_url"] = json.dumps(self._grafana_url)
 
     @staticmethod

@@ -268,7 +268,7 @@ class GrafanaAuthProvides(Object):
             charm.on[relationship_name].relation_changed, self._on_grafana_auth_relation_changed
         )
 
-    def _build_conf_dict(self, auth_type, **kwargs):
+    def _build_conf_dict(self, auth_type, **kwargs) -> dict:
         """Builds a dictionary for grafana authentication that matches the json schema of the provider.
         Args:
             auth_type (str): authentication type to be set in the configuration dict.
@@ -281,7 +281,11 @@ class GrafanaAuthProvides(Object):
         return conf_dict
 
     def _set_auth_config_in_relation_data(self, event: RelationJoinedEvent) -> None:
-        """Adds authentication config to relation data.
+        """Handler triggered on relation joined event. Adds authentication config to relation data.
+        Args:
+            event: Juju event
+        Returns:
+            None
         """
         if not self._charm.unit.is_leader():
             return
@@ -294,8 +298,13 @@ class GrafanaAuthProvides(Object):
         if not current_auth_conf:
             relation_data["grafana_auth"] = json.dumps(self._auth_conf)
 
-    def _on_grafana_auth_relation_changed(self,event: RelationChangedEvent):
-        """extracts grafana url from relation data and emits grafana_url_available event
+    def _on_grafana_auth_relation_changed(self,event: RelationChangedEvent) -> None:
+        """Handler triggered on relation changed events. 
+        Extracts grafana url from relation data and emits grafana_url_available event
+        Args:
+            event: Juju event
+        Returns:
+            None
         """
         if not self._charm.unit.is_leader():
             return
@@ -397,7 +406,7 @@ class GrafanaAuthRequires(Object):
             charm.on[relationship_name].relation_joined, self._set_grafana_url_in_relation_data
         )
 
-    def _on_grafana_auth_relation_changed(self, event):
+    def _on_grafana_auth_relation_changed(self, event) -> None:
         """Handler triggered on relation changed events.
         Args:
             event: Juju event
@@ -419,11 +428,12 @@ class GrafanaAuthRequires(Object):
             return
         self.on.grafana_auth_config_available.emit(auth_conf=auth_conf)
 
-    def _on_grafana_auth_relation_departed(self, event):
-        """Update authentication configuration when relation departs 
-
-        When Grafana authentication configuration provider departs,
-        the configuration for that provider is removed.
+    def _on_grafana_auth_relation_departed(self, event) -> None:
+        """Handler triggered on relation departed events.
+        Args:
+            event: Juju event
+        Returns:
+            None
         """
         if not self._charm.unit.is_leader():
             return
@@ -443,7 +453,11 @@ class GrafanaAuthRequires(Object):
         self.on.grafana_auth_config_revoked.emit(revoked_auth_modes)
 
     def _set_grafana_url_in_relation_data(self, event: RelationJoinedEvent) -> None:
-        """Adds Grafana URL to relation data.
+        """Handler triggered on relation joined events. Adds Grafana URL to relation data. 
+        Args:
+            event: Juju event
+        Returns:
+            None
         """
         if not self._charm.unit.is_leader():
             return

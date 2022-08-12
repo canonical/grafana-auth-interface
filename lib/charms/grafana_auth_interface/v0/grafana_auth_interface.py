@@ -400,9 +400,6 @@ class GrafanaAuthRequires(Object):
             charm.on[relationship_name].relation_changed, self._on_grafana_auth_relation_changed
         )
         self.framework.observe(
-            charm.on[relationship_name].relation_departed, self._on_grafana_auth_relation_departed
-        )
-        self.framework.observe(
             charm.on[relationship_name].relation_joined, self._set_grafana_url_in_relation_data
         )
 
@@ -427,30 +424,6 @@ class GrafanaAuthRequires(Object):
             logger.warning("Relation data did not pass JSON Schema validation")
             return
         self.on.grafana_auth_config_available.emit(auth_conf=auth_conf)
-
-    def _on_grafana_auth_relation_departed(self, event) -> None:
-        """Handler triggered on relation departed events.
-        Args:
-            event: Juju event
-        Returns:
-            None
-        """
-        if not self._charm.unit.is_leader():
-            return
-        grafana_auth_relation = self.model.get_relation(
-            relation_name=self._relationship_name, relation_id=event.relation.id
-        )
-        relation_data = event.relation.data[event.app]
-        relation_data_dict = _load_relation_data(relation_data)
-        if not relation_data:
-            logger.info("No relation data")
-            return
-        current_auth_conf = relation_data_dict.get("grafana_auth")
-        if not current_auth_conf:
-            logger.info("No authentication configuration found")
-            return
-        revoked_auth_modes = list(current_auth_conf.get("auth").keys())
-        self.on.grafana_auth_config_revoked.emit(revoked_auth_modes)
 
     def _set_grafana_url_in_relation_data(self, event: RelationJoinedEvent) -> None:
         """Handler triggered on relation joined events. Adds Grafana URL to relation data. 

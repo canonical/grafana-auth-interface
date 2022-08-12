@@ -168,9 +168,6 @@ class TestGrafanaAuthRequires(unittest.TestCase):
             def relation_changed(self):
                 pass
 
-            def relation_departed(self):
-                pass
-
         self.requirer_unit = UnitMock(name=REQUIRER_UNIT_NAME)
         self.provider_app = AppMock(name=PROVIDER_APP_NAME)
         self.requirer_app = AppMock(name=REQUIRER_APP_NAME)
@@ -293,28 +290,3 @@ class TestGrafanaAuthRequires(unittest.TestCase):
         event.app = self.provider_app
         self.grafana_auth_requires._on_grafana_auth_relation_changed(event)
         patch_emit.assert_not_called()
-
-    @patch(
-        f"{CHARM_LIB_PATH}.GrafanaAuthRequirerCharmEvents.grafana_auth_config_revoked",
-        new_callable=PropertyMock,
-    )
-    def test_given_grafana_auth_conf_in_relation_databag_and_unit_is_leader_and_relation_departed_when_grafana_auth_relation_departed_then_grafana_auth_config_revoked_is_emitted(
-        self, patch_emit
-    ):
-        patch_emit.emit.return_value = "whatever"
-        event = Mock()
-        conf_dict = {
-            "auth": {
-                AUTH_TYPE: {
-                    "header_property": HEADER_PROPERTY,
-                    "header_name": HEADER_NAME,
-                    "auto_sign_up": AUTO_SIGN_UP,
-                }
-            }
-        }
-        event.relation.data = {
-            self.provider_app: {"grafana_auth": json.dumps(conf_dict)},
-        }
-        event.app = self.provider_app
-        self.grafana_auth_requires._on_grafana_auth_relation_departed(event)
-        patch_emit.assert_called_once()

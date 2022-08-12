@@ -346,24 +346,24 @@ class AuthConfAvailableEvent(EventBase):
         self.relation_id = snapshot["relation_id"]
 
 
-class AuthConfUnrequiredEvent(EventBase):
-    """Charm event triggered when the auth config set by this relation becomes unrequired"""
+class AuthConfRevokedEvent(EventBase):
+    """Charm event triggered when the auth config set by this relation is revoked"""
 
-    def __init__(self, handle, unrequired_auth_modes: list, relation_id: int):
+    def __init__(self, handle, revoked_auth_modes: list, relation_id: int):
         super().__init__(handle)
-        self.unrequired_auth_modes = unrequired_auth_modes
+        self.revoked_auth_modes = revoked_auth_modes
         self.relation_id = relation_id
 
     def snapshot(self) -> dict:
         """Returns snapshot."""
         return {
-            "unrequired_auth_modes": self.unrequired_auth_modes,
+            "revoked_auth_modes": self.revoked_auth_modes,
             "relation_id": self.relation_id,
         }
 
     def restore(self, snapshot: dict):
         """Restores snapshot."""
-        self.unrequired_auth_modes = snapshot["unrequired_auth_modes"]
+        self.revoked_auth_modes = snapshot["revoked_auth_modes"]
         self.relation_id = snapshot["relation_id"]
 
 
@@ -371,7 +371,7 @@ class GrafanaAuthRequirerCharmEvents(CharmEvents):
     """List of events that the grafana auth requirer charm can leverage."""
 
     grafana_auth_config_available = EventSource(AuthConfAvailableEvent)
-    grafana_auth_config_unrequired = EventSource(AuthConfUnrequiredEvent)
+    grafana_auth_config_revoked = EventSource(AuthConfRevokedEvent)
 
 
 class GrafanaAuthRequires(Object):
@@ -447,8 +447,8 @@ class GrafanaAuthRequires(Object):
         if not current_auth_conf:
             logger.info("No authentication configuration found")
             return
-        unrequired_auth_modes = list(current_auth_conf.get("auth").keys())
-        self.on.grafana_auth_config_unrequired.emit(unrequired_auth_modes)
+        revoked_auth_modes = list(current_auth_conf.get("auth").keys())
+        self.on.grafana_auth_config_revoked.emit(revoked_auth_modes)
 
     def _set_grafana_url_in_realtion_data(self, event: RelationJoinedEvent) -> None:
         """Adds Grafana URL to relation data.

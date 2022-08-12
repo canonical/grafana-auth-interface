@@ -213,7 +213,7 @@ class TestGrafanaAuthRequires(unittest.TestCase):
         f"{CHARM_LIB_PATH}.GrafanaAuthRequirerCharmEvents.grafana_auth_config_available",
         new_callable=PropertyMock,
     )
-    def test_given_grafana_auth_conf_in_relation_databag_when_unit_is_leader_and_schema_is_valid_then_grafana_auth_config_available_event_is_emitted(
+    def test_given_grafana_auth_conf_in_relation_databag_and_unit_is_leader_and_schema_is_valid_when_grafana_auth_relation_changed_then_grafana_auth_config_available_event_is_emitted(
         self, patch_emit
     ):
         patch_emit.emit.return_value = "whatever"
@@ -238,7 +238,7 @@ class TestGrafanaAuthRequires(unittest.TestCase):
         f"{CHARM_LIB_PATH}.GrafanaAuthRequirerCharmEvents.grafana_auth_config_available",
         new_callable=PropertyMock,
     )
-    def test_given_grafana_auth_conf_in_relation_databag_when_unit_is_not_leader_then_grafana_auth_config_available_event_not_is_emitted(
+    def test_given_grafana_auth_conf_in_relation_databag_and_unit_is_not_leader_when_grafana_auth_relation_changed_then_grafana_auth_config_available_event_not_is_emitted(
         self, patch_emit
     ):
         self.requirer_unit.set_leader(False)
@@ -250,7 +250,7 @@ class TestGrafanaAuthRequires(unittest.TestCase):
         f"{CHARM_LIB_PATH}.GrafanaAuthRequirerCharmEvents.grafana_auth_config_available",
         new_callable=PropertyMock,
     )
-    def test_given_grafana_auth_conf_in_relation_databag_when_auth_mode_not_valid_then_grafana_auth_config_available_event_is_not_emitted(
+    def test_given_grafana_auth_conf_in_relation_databag_and_auth_mode_not_valid_when_grafana_auth_relation_changed_then_grafana_auth_config_available_event_is_not_emitted(
         self, patch_emit
     ):
         patch_emit.emit.return_value = "whatever"
@@ -275,7 +275,7 @@ class TestGrafanaAuthRequires(unittest.TestCase):
         f"{CHARM_LIB_PATH}.GrafanaAuthRequirerCharmEvents.grafana_auth_config_available",
         new_callable=PropertyMock,
     )
-    def test_given_grafana_auth_conf_in_relation_databag_when_schema_is_not_valid_then_grafana_auth_config_available_event_is_not_emitted(
+    def test_given_grafana_auth_conf_in_relation_databag_and_schema_is_not_valid_when_grafana_auth_relation_changed_then_grafana_auth_config_available_event_is_not_emitted(
         self, patch_emit
     ):
         patch_emit.emit.return_value = "whatever"
@@ -295,10 +295,10 @@ class TestGrafanaAuthRequires(unittest.TestCase):
         patch_emit.assert_not_called()
 
     @patch(
-        f"{CHARM_LIB_PATH}.GrafanaAuthRequirerCharmEvents.grafana_auth_config_unrequired",
+        f"{CHARM_LIB_PATH}.GrafanaAuthRequirerCharmEvents.grafana_auth_config_revoked",
         new_callable=PropertyMock,
     )
-    def test_given_grafana_auth_conf_in_relation_databag_when_unit_is_leader_and_relation_departed_then_grafana_auth_config_unrequired_is_emitted(
+    def test_given_grafana_auth_conf_in_relation_databag_and_unit_is_leader_and_relation_departed_when_grafana_auth_relation_departed_then_grafana_auth_config_revoked_is_emitted(
         self, patch_emit
     ):
         patch_emit.emit.return_value = "whatever"

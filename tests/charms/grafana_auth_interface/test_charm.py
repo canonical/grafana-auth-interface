@@ -79,6 +79,7 @@ class TestGrafanaAuthProvides(unittest.TestCase):
     def test_given_auth_mode_config_and_unit_is_leader_when_relation_joined_then_auth_conf_is_set_in_relation_databag(
         self,
     ):
+        self.provider_unit.set_leader(True)
         expected_conf_dict = {
             "auth": {
                 AUTH_TYPE: {
@@ -118,6 +119,7 @@ class TestGrafanaAuthProvides(unittest.TestCase):
     def test_given_grafana_url_in_databag_and_unit_is_leader_when_on_grafana_auth_relation_changed_then_grafana_url_available_event_is_emitted(
         self, patch_emit
     ):
+        self.provider_unit.set_leader(True)
         event = Mock()
         grafana_url = {"url": GRAFANA_URL}
         event.relation.data = {
@@ -138,7 +140,6 @@ class TestGrafanaAuthProvides(unittest.TestCase):
         self, patch_emit
     ):
         self.provider_unit.set_leader(False)
-        patch_emit.emit.return_value = "whatever"
         event = Mock()
         self.grafana_auth_provides._on_grafana_auth_relation_changed(event)
         patch_emit.assert_not_called()
@@ -150,7 +151,6 @@ class TestGrafanaAuthProvides(unittest.TestCase):
     def test_given_grafana_grafana_url_in_relation_databag_when_schema_is_not_valid_then_grafana_url_available_event_is_not_emitted(
         self, patch_emit
     ):
-        patch_emit.emit.return_value = "whatever"
         event = Mock()
         grafana_url = {"wrong key": GRAFANA_URL}
         event.relation.data = {
@@ -183,6 +183,7 @@ class TestGrafanaAuthRequires(unittest.TestCase):
     def test_given_unit_is_leader_when_relation_joined_then_grafana_url_is_set_in_relation_databag(
         self,
     ):
+        self.requirer_unit.set_leader(True)
         expected_grafana_url = {"url": GRAFANA_URL}
         event = Mock()
         event.relation.id = 1
@@ -215,7 +216,7 @@ class TestGrafanaAuthRequires(unittest.TestCase):
     def test_given_grafana_auth_conf_in_relation_databag_and_unit_is_leader_when_grafana_auth_relation_changed_then_grafana_auth_config_available_event_is_emitted(
         self, patch_emit
     ):
-        patch_emit.emit.return_value = "whatever"
+        self.requirer_unit.set_leader(True)
         event = Mock()
         conf_dict = {
             "auth": {
@@ -253,7 +254,6 @@ class TestGrafanaAuthRequires(unittest.TestCase):
     def test_given_grafana_auth_conf_in_relation_databag_and_auth_mode_not_valid_when_grafana_auth_relation_changed_then_grafana_auth_config_available_event_is_not_emitted(
         self, patch_emit
     ):
-        patch_emit.emit.return_value = "whatever"
         event = Mock()
         wrong_conf_dict = {
             "auth": {
@@ -278,7 +278,6 @@ class TestGrafanaAuthRequires(unittest.TestCase):
     def test_given_grafana_auth_conf_in_relation_databag_and_schema_is_not_valid_when_grafana_auth_relation_changed_then_grafana_auth_config_available_event_is_not_emitted(
         self, patch_emit
     ):
-        patch_emit.emit.return_value = "whatever"
         event = Mock()
         wrong_conf_dict = {
             "auth": {

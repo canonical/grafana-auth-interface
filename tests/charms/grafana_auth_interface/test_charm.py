@@ -4,7 +4,7 @@
 
 import json
 import unittest
-from unittest.mock import Mock, PropertyMock, patch
+from unittest.mock import Mock, PropertyMock, call, patch
 
 from charms.grafana_auth_interface.v0.grafana_auth_interface import (
     GrafanaAuthProvides,
@@ -118,7 +118,6 @@ class TestGrafanaAuthProvides(unittest.TestCase):
     def test_given_grafana_url_in_databag_and_unit_is_leader_when_on_grafana_auth_relation_changed_then_grafana_url_available_event_is_emitted(
         self, patch_emit
     ):
-        patch_emit.emit.return_value = "whatever"
         event = Mock()
         grafana_url = {"url": GRAFANA_URL}
         event.relation.data = {
@@ -126,7 +125,10 @@ class TestGrafanaAuthProvides(unittest.TestCase):
         }
         event.app = self.requirer_app
         self.grafana_auth_provides._on_grafana_auth_relation_changed(event)
-        patch_emit.assert_called_once()
+        calls = [
+            call().emit(grafana_url=GRAFANA_URL),
+        ]
+        patch_emit.assert_has_calls(calls, any_order=True)
 
     @patch(
         f"{CHARM_LIB_PATH}.GrafanaAuthProviderCharmEvents.grafana_url_available",
@@ -229,7 +231,8 @@ class TestGrafanaAuthRequires(unittest.TestCase):
         }
         event.app = self.provider_app
         self.grafana_auth_requires._on_grafana_auth_relation_changed(event)
-        patch_emit.assert_called_once()
+        calls = [call().emit(auth_conf=conf_dict)]
+        patch_emit.assert_has_calls(calls, any_order=True)
 
     @patch(
         f"{CHARM_LIB_PATH}.GrafanaAuthRequirerCharmEvents.grafana_auth_config_available",

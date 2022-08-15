@@ -160,6 +160,39 @@ class TestGrafanaAuthProvides(unittest.TestCase):
         self.grafana_auth_provides._on_grafana_auth_relation_changed(event)
         patch_emit.assert_not_called()
 
+    @patch(
+        f"{CHARM_LIB_PATH}.GrafanaAuthProviderCharmEvents.grafana_url_available",
+        new_callable=PropertyMock,
+    )
+    def test_given_grafana_url_not_in_databag_and_unit_is_leader_when_on_grafana_auth_relation_changed_then_grafana_url_available_event_is_not_emitted(
+        self, patch_emit
+    ):
+        self.provider_unit.set_leader(True)
+        event = Mock()
+        event.relation.data = {
+            self.requirer_app: {"not_grafana_url": ""},
+        }
+        event.app = self.requirer_app
+        self.grafana_auth_provides._on_grafana_auth_relation_changed(event)
+        patch_emit.assert_not_called()
+
+    @patch(
+        f"{CHARM_LIB_PATH}.GrafanaAuthProviderCharmEvents.grafana_url_available",
+        new_callable=PropertyMock,
+    )
+    def test_given_grafana_grafana_url_in_relation_databag_when_unit_is_not_leader_then_grafana_url_available_event_is_not_emitted(
+        self, patch_emit
+    ):
+        self.provider_unit.set_leader(False)
+        event = Mock()
+        grafana_url = {"url": GRAFANA_URL}
+        event.relation.data = {
+            self.requirer_app: {"grafana_url": json.dumps(grafana_url)},
+        }
+        event.app = self.requirer_app
+        self.grafana_auth_provides._on_grafana_auth_relation_changed(event)
+        patch_emit.assert_not_called()
+
 
 class TestGrafanaAuthRequires(unittest.TestCase):
     def setUp(self):
@@ -244,6 +277,19 @@ class TestGrafanaAuthRequires(unittest.TestCase):
     ):
         self.requirer_unit.set_leader(False)
         event = Mock()
+        conf_dict = {
+            "auth": {
+                AUTH_TYPE: {
+                    "header_property": HEADER_PROPERTY,
+                    "header_name": HEADER_NAME,
+                    "auto_sign_up": AUTO_SIGN_UP,
+                }
+            }
+        }
+        event.relation.data = {
+            self.provider_app: {"grafana_auth": json.dumps(conf_dict)},
+        }
+        event.app = self.provider_app
         self.grafana_auth_requires._on_grafana_auth_relation_changed(event)
         patch_emit.assert_not_called()
 
@@ -288,6 +334,22 @@ class TestGrafanaAuthRequires(unittest.TestCase):
         }
         event.relation.data = {
             self.provider_app: {"grafana_auth": json.dumps(wrong_conf_dict)},
+        }
+        event.app = self.provider_app
+        self.grafana_auth_requires._on_grafana_auth_relation_changed(event)
+        patch_emit.assert_not_called()
+
+    @patch(
+        f"{CHARM_LIB_PATH}.GrafanaAuthRequirerCharmEvents.grafana_auth_config_available",
+        new_callable=PropertyMock,
+    )
+    def test_given_grafana_auth_conf_not_in_relation_databag_and_unit_is_leader_when_grafana_auth_relation_changed_then_grafana_auth_config_available_event_is_not_emitted(
+        self, patch_emit
+    ):
+        self.requirer_unit.set_leader(True)
+        event = Mock()
+        event.relation.data = {
+            self.provider_app: {"not_auth_conf": ""},
         }
         event.app = self.provider_app
         self.grafana_auth_requires._on_grafana_auth_relation_changed(event)

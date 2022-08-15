@@ -44,7 +44,11 @@ from ops.charm import CharmBase
 class ExampleRequirerCharm(CharmBase):
     def __init__(self, *args):
         super().__init__(*args)
-        self.grafana_auth = GrafanaAuthRequires(self)
+        self.grafana_auth = GrafanaAuthRequires(
+            self,
+            relationship_name="grafana_auth",
+            grafana_url="https://grafana.example.com/"
+        )
         self.framework.observe(
             self.grafana_auth.on.grafana_auth_config_available, self._on_grafana_auth_config_available
         )
@@ -58,8 +62,6 @@ from ops.charm import (
     CharmBase,
     CharmEvents,
     RelationChangedEvent,
-    RelationDepartedEvent,
-    RelationEvent,
     RelationJoinedEvent,
 )
 
@@ -82,125 +84,149 @@ PROVIDER_JSON_SCHEMA = {
     "default": {},
     "examples": [
         {
-            "auth": {
-                "proxy": {
-                    "enabled": True,
-                    "header_name": "some-header",
-                    "header_property": "some-header-property",
-                    "auto_sign_up": False,
-                    "sync_ttl": 36200,
-                    "whitelist": [
-                        "localhost",
-                        "canonical.com"
-                    ],
-                    "headers": [
-                        "some-header",
-                        "some-other-header"
-                    ],
-                    "headers_encoded": True,
-                    "enable_login_token": True
+            "application-data": {
+                "auth": {
+                    "proxy": {
+                        "enabled": True,
+                        "header_name": "some-header",
+                        "header_property": "some-header-property",
+                        "auto_sign_up": False,
+                        "sync_ttl": 36200,
+                        "whitelist": [
+                            "localhost",
+                            "canonical.com"
+                        ],
+                        "headers": [
+                            "some-header",
+                            "some-other-header"
+                        ],
+                        "headers_encoded": True,
+                        "enable_login_token": True
+                    }
                 }
             }
         }
     ],
     "required": [
-        "auth"
+        "application-data"
     ],
     "properties": {
-        "auth": {
-            "anyOf": [
-                {
-                    "required": [
-                        "proxy"
-                    ]
-                }
-            ],
+        "application-data": {
+            "$id": "#/properties/application-data",
+            "title": "Application Databag",
             "type": "object",
+            "additionalProperties": True,
+            "required": [
+                "auth"
+            ],
             "properties": {
-                "proxy": {
-                    "$id": "#/properties/proxy",
-                    "type": "object",
-                    "required": [
-                        "header_name",
-                        "header_property"
-                    ],
+                "auth": {
                     "additionalProperties": True,
+                    "anyOf": [
+                        {
+                            "required": [
+                                "proxy"
+                            ]
+                        }
+                    ],
+                    "type": "object",
                     "properties": {
-                        "enabled": {
-                            "$id": "#/properties/proxy/enabled",
-                            "type": "boolean",
-                            "default": True
-                        },
-                        "header_name": {
-                            "$id": "#/properties/proxy/header_name",
-                            "type": "string"
-                        },
-                        "header_property": {
-                            "$id": "#/properties/proxy/header_property",
-                            "type": "string"
-                        },
-                        "auto_sign_up": {
-                            "$id": "#/properties/proxy/auto_sign_up",
-                            "type": "boolean",
-                            "default": True
-                        },
-                        "sync_ttl": {
-                            "$id": "#/properties/proxy/sync_ttl",
-                            "type": "integer",
-                            "default": 60
-                        },
-                        "whitelist": {
-                            "$id": "#/properties/proxy/whitelist",
-                            "type": "array",
-                            "items": {
-                                "type": "string"
+                        "proxy": {
+                            "$id": "#/properties/application-data/proxy",
+                            "type": "object",
+                            "required": [
+                                "header_name",
+                                "header_property"
+                            ],
+                            "additionalProperties": True,
+                            "properties": {
+                                "enabled": {
+                                    "$id": "#/properties/application-data/proxy/enabled",
+                                    "type": "boolean",
+                                    "default": True
+                                },
+                                "header_name": {
+                                    "$id": "#/properties/application-data/proxy/header_name",
+                                    "type": "string"
+                                },
+                                "header_property": {
+                                    "$id": "#/properties/application-data/proxy/header_property",
+                                    "type": "string"
+                                },
+                                "auto_sign_up": {
+                                    "$id": "#/properties/application-data/proxy/auto_sign_up",
+                                    "type": "boolean",
+                                    "default": True
+                                },
+                                "sync_ttl": {
+                                    "$id": "#/properties/application-data/proxy/sync_ttl",
+                                    "type": "integer",
+                                    "default": 60
+                                },
+                                "whitelist": {
+                                    "$id": "#/properties/application-data/proxy/whitelist",
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                },
+                                "headers": {
+                                    "$id": "#/properties/application-data/proxy/headers",
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                },
+                                "headers_encoded": {
+                                    "$id": "#/properties/application-data/proxy/headers_encoded",
+                                    "type": "boolean",
+                                    "default": False
+                                },
+                                "enable_login_token": {
+                                    "$id": "#/properties/application-data/proxy/enable_login_token",
+                                    "type": "boolean",
+                                    "default": False
+                                }
                             }
-                        },
-                        "headers": {
-                            "$id": "#/properties/proxy/headers",
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
-                        "headers_encoded": {
-                            "$id": "#/properties/proxy/headers_encoded",
-                            "type": "boolean",
-                            "default": False
-                        },
-                        "enable_login_token": {
-                            "$id": "#/properties/proxy/enable_login_token",
-                            "type": "boolean",
-                            "default": False
                         }
                     }
                 }
-            },
-            "additionalProperties": False
+            }
         }
     },
-    "additionalProperties": False
+    "additionalProperties": True
 }
 
 REQUIRER_JSON_SCHEMA = {
     "$schema": "http://json-schema.org/draft-07/schema",
-    "$id": "https://canonical.github.io/charm-relation-interfaces/grafana_auth/schemas/requirer.json",
+    "$id": "https://canonical.github.io/charm-relation-interfaces/interfaces/grafana_auth/schemas/requirer.json",
     "type": "object",
     "title": "`grafana_auth` requirer schema",
     "description": "The `grafana_auth` root schema comprises the entire consumer databag for this interface.",
     "default": {},
     "examples": [
         {
-            "url": "https://grafana.example.com/"
+            "application-data": {
+                "url": "https://grafana.example.com/"
+            }
         }
     ],
     "required": [
-        "url"
+        "application-data"
     ],
     "properties": {
-        "url": {
-            "$id": "#/properties/url",
-            "type": "string"
+        "application-data": {
+            "$id": "#/properties/application-data",
+            "title": "Application Databag",
+            "type": "object",
+            "additionalProperties": True,
+            "required": [
+                "url"
+            ],
+            "url": {
+                "$id": "#/properties/application-data/url",
+                "type": "string"
+            }
         }
     },
     "additionalProperties": True
@@ -228,7 +254,7 @@ def _load_relation_data(raw_relation_data: dict) -> dict:
 class GrafanaUrlAvailableEvent(EventBase):
     """Charm event triggered when provider charm extracts grafana url from relation data"""
 
-    def __init__(self, handle, grafana_url: str, relation_id: int):
+    def __init__(self, handle, grafana_url: dict, relation_id: int):
         super().__init__(handle)
         self.grafana_url = grafana_url
         self.relation_id = relation_id
@@ -252,7 +278,7 @@ class GrafanaAuthProviderCharmEvents(CharmEvents):
     grafana_url_available = EventSource(GrafanaUrlAvailableEvent)
 
 class GrafanaAuthProvides(Object):
-    """Grafana authentication configuration provider class to be initialized by grafana-auth providers"""    
+    """Grafana authentication configuration provider class to be initialized by grafana-auth providers"""
 
     on = GrafanaAuthProviderCharmEvents()
 
@@ -312,26 +338,26 @@ class GrafanaAuthProvides(Object):
         if not relation_data:
             logger.info("No relation data")
             return
-        grafana_url_dict = relation_data.get("grafana_url")
-        if not grafana_url_dict:
+        grafana_url = relation_data.get("grafana_url")
+        if not grafana_url:
             logger.warning("No Grafana url")
             return
-        if not self._relation_data_is_valid(grafana_url_dict):
+        if not self._app_relation_data_is_valid(grafana_url):
             logger.warning("Relation data did not pass JSON Schema validation")
             return
-        grafana_url = grafana_url_dict.get('url')
         self.on.grafana_url_available.emit(grafana_url=grafana_url)
 
     @staticmethod
-    def _relation_data_is_valid(auth_conf: dict) -> bool:
+    def _app_relation_data_is_valid(app_relation_data) -> bool:
         """Uses JSON schema validator to authentication configuration content.
         Args:
             auth_conf (str): authentication configuration set by the provider charm.
         Returns:
             bool: True/False depending on whether the configuration follows the json schema.
         """
+        relation_data = {"application-data" : app_relation_data}
         try:
-            validate(instance=auth_conf, schema=REQUIRER_JSON_SCHEMA)
+            validate(instance=relation_data, schema=REQUIRER_JSON_SCHEMA)
             return True
         except exceptions.ValidationError:
             return False
@@ -420,7 +446,7 @@ class GrafanaAuthRequires(Object):
         if not auth_conf:
             logger.warning("No authentication config")
             return
-        if not self._relation_data_is_valid(auth_conf):
+        if not self._app_relation_data_is_valid(auth_conf):
             logger.warning("Relation data did not pass JSON Schema validation")
             return
         self.on.grafana_auth_config_available.emit(auth_conf=auth_conf)
@@ -441,15 +467,16 @@ class GrafanaAuthRequires(Object):
         relation_data["grafana_url"] = json.dumps(self._grafana_url)
 
     @staticmethod
-    def _relation_data_is_valid(auth_conf: dict) -> bool:
+    def _app_relation_data_is_valid(app_relation_data) -> bool:
         """Uses JSON schema validator to authentication configuration content.
         Args:
             auth_conf (str): authentication configuration set by the provider charm.
         Returns:
             bool: True/False depending on whether the configuration follows the json schema.
         """
+        relation_data = {"application-data" : app_relation_data}
         try:
-            validate(instance=auth_conf, schema=PROVIDER_JSON_SCHEMA)
+            validate(instance=relation_data, schema=PROVIDER_JSON_SCHEMA)
             return True
         except exceptions.ValidationError:
             return False

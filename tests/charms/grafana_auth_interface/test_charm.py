@@ -128,7 +128,7 @@ class TestGrafanaAuthProvides(unittest.TestCase):
         event.app = self.requirer_app
         self.grafana_auth_provides._on_grafana_auth_relation_changed(event)
         calls = [
-            call().emit(grafana_url=GRAFANA_URL),
+            call().emit(grafana_url=grafana_url),
         ]
         patch_emit.assert_has_calls(calls, any_order=True)
 

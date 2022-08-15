@@ -28,9 +28,12 @@ class ExampleProviderCharm(CharmBase):
             self,
             relationship_name='grafana_auth'
             auth_type='proxy', 
-                header_name="X-WEBAUTH-USER", 
-                header_property="username",
-                auto_sign_up=False,
+            header_name="X-WEBAUTH-USER",
+            header_property="username",
+            auto_sign_up=False,
+        )
+        self.framework.observe(
+            self.grafana_auth.on.grafana_url_available, self._on_grafana_url_available
         )
 ```
 ### Requirer charm
@@ -41,12 +44,9 @@ from ops.charm import CharmBase
 class ExampleRequirerCharm(CharmBase):
     def __init__(self, *args):
         super().__init__(*args)
-        self.grafana_auth = GrafanaAuthProvides(self)
+        self.grafana_auth = GrafanaAuthRequires(self)
         self.framework.observe(
             self.grafana_auth.on.grafana_auth_config_available, self._on_grafana_auth_config_available
-        )
-        self.framework.observe(
-            self.grafana_auth.on.grafana_auth_config_changed, self._on_grafana_auth_config_changed
         )
 ```
 """

@@ -98,7 +98,7 @@ class TestGrafanaAuthProvides(unittest.TestCase):
         actual_conf_dict = _load_relation_data(event.relation.data[event.app]).get("grafana_auth")
         self.assertDictEqual(expected_conf_dict, actual_conf_dict)  # type: ignore[arg-type]
 
-    def test_given_auth_mode_config_and_unit_is_not_leader_when_relation_joined_then_auth_conf_is_set_not_set_in_relation_databag(
+    def test_given_auth_mode_config_and_unit_is_not_leader_when_relation_joined_then_auth_conf_is_not_set_in_relation_databag(
         self,
     ):
         self.provider_unit.set_leader(False)
@@ -115,7 +115,7 @@ class TestGrafanaAuthProvides(unittest.TestCase):
         f"{CHARM_LIB_PATH}.GrafanaAuthProviderCharmEvents.grafana_url_available",
         new_callable=PropertyMock,
     )
-    def test_given_grafana_grafana_url_databag_when_unit_is_leader_and_schema_is_valid_then_grafana_url_available_event_is_emitted(
+    def test_given_grafana_url_in_databag_and_unit_is_leader_when_on_grafana_auth_relation_changed_then_grafana_url_available_event_is_emitted(
         self, patch_emit
     ):
         patch_emit.emit.return_value = "whatever"
@@ -132,7 +132,7 @@ class TestGrafanaAuthProvides(unittest.TestCase):
         f"{CHARM_LIB_PATH}.GrafanaAuthProviderCharmEvents.grafana_url_available",
         new_callable=PropertyMock,
     )
-    def test_given_grafana_grafana_url_databag_when_unit_is_not_leader_then_grafana_url_available_event_is_not_emitted(
+    def test_given_grafana_url_not_in_databag_and_unit_is_not_leader_when_on_grafana_auth_relation_changed_then_grafana_url_available_event_is_not_emitted(
         self, patch_emit
     ):
         self.provider_unit.set_leader(False)
@@ -145,7 +145,7 @@ class TestGrafanaAuthProvides(unittest.TestCase):
         f"{CHARM_LIB_PATH}.GrafanaAuthProviderCharmEvents.grafana_url_available",
         new_callable=PropertyMock,
     )
-    def test_given_grafana_grafana_url_databag_when_schema_is_not_valid_then_grafana_url_available_event_is_not_emitted(
+    def test_given_grafana_grafana_url_in_relation_databag_when_schema_is_not_valid_then_grafana_url_available_event_is_not_emitted(
         self, patch_emit
     ):
         patch_emit.emit.return_value = "whatever"
@@ -178,7 +178,7 @@ class TestGrafanaAuthRequires(unittest.TestCase):
             self.charm, relationship_name=RELATIONSHIP_NAME, grafana_url=GRAFANA_URL
         )
 
-    def test_given_grafana_url_and_unit_is_leader_when_relation_joined_then_grafana_url_is_set_in_relation_databag(
+    def test_given_unit_is_leader_when_relation_joined_then_grafana_url_is_set_in_relation_databag(
         self,
     ):
         expected_grafana_url = {"url": GRAFANA_URL}
@@ -192,7 +192,7 @@ class TestGrafanaAuthRequires(unittest.TestCase):
         actual_grafana_url = _load_relation_data(event.relation.data[event.app]).get("grafana_url")
         self.assertDictEqual(expected_grafana_url, actual_grafana_url)  # type: ignore[arg-type]
 
-    def test_given_grafana_url_and_unit_is_not_leader_when_relation_joined_then_grafana_url_is_not_set_in_relation_databag(
+    def test_given_unit_is_not_leader_when_relation_joined_then_grafana_url_is_not_set_in_relation_databag(
         self,
     ):
         self.requirer_unit.set_leader(False)
@@ -210,7 +210,7 @@ class TestGrafanaAuthRequires(unittest.TestCase):
         f"{CHARM_LIB_PATH}.GrafanaAuthRequirerCharmEvents.grafana_auth_config_available",
         new_callable=PropertyMock,
     )
-    def test_given_grafana_auth_conf_in_relation_databag_and_unit_is_leader_and_schema_is_valid_when_grafana_auth_relation_changed_then_grafana_auth_config_available_event_is_emitted(
+    def test_given_grafana_auth_conf_in_relation_databag_and_unit_is_leader_when_grafana_auth_relation_changed_then_grafana_auth_config_available_event_is_emitted(
         self, patch_emit
     ):
         patch_emit.emit.return_value = "whatever"

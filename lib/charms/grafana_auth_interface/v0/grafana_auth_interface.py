@@ -318,7 +318,7 @@ class GrafanaAuthProvides(Object):
         grafana_auth_relation = self.model.get_relation(
             relation_name=self._relationship_name, relation_id=event.relation.id
         )
-        relation_data = event.relation.data[event.app]
+        relation_data = event.relation.data[self.model.app]
         relation_data_dict = _load_relation_data(relation_data)
         current_auth_conf = relation_data_dict.get("grafana_auth")
         if not current_auth_conf:
@@ -345,7 +345,10 @@ class GrafanaAuthProvides(Object):
         if not self._app_relation_data_is_valid(grafana_url):
             logger.warning("Relation data did not pass JSON Schema validation")
             return
-        self.on.grafana_url_available.emit(grafana_url=grafana_url)
+        self.on.grafana_url_available.emit(
+            grafana_url=grafana_url,
+            relation_id=event.relation.id,
+        )
 
     @staticmethod
     def _app_relation_data_is_valid(app_relation_data) -> bool:
@@ -449,7 +452,10 @@ class GrafanaAuthRequires(Object):
         if not self._app_relation_data_is_valid(auth_conf):
             logger.warning("Relation data did not pass JSON Schema validation")
             return
-        self.on.grafana_auth_config_available.emit(auth_conf=auth_conf)
+        self.on.grafana_auth_config_available.emit(
+            auth_conf=auth_conf,
+            relation_id=event.relation.id,
+        )
 
     def _set_grafana_url_in_relation_data(self, event: RelationJoinedEvent) -> None:
         """Handler triggered on relation joined events. Adds Grafana URL to relation data. 
@@ -463,8 +469,11 @@ class GrafanaAuthRequires(Object):
         grafana_auth_relation = self.model.get_relation(
             relation_name=self._relationship_name, relation_id=event.relation.id
         )
-        relation_data = event.relation.data[event.app]
-        relation_data["grafana_url"] = json.dumps(self._grafana_url)
+        relation_data = event.relation.data[self.model.app]
+        relation_data_dict = _load_relation_data(relation_data)
+        current_url = relation_data_dict.get("grafana_url")
+        if not current_url:
+            relation_data["grafana_url"] = json.dumps(self._grafana_url)
 
     @staticmethod
     def _app_relation_data_is_valid(app_relation_data) -> bool:

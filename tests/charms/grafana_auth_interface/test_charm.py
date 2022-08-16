@@ -75,6 +75,7 @@ class TestGrafanaAuthProvides(unittest.TestCase):
             header_property=HEADER_PROPERTY,
             auto_sign_up=False,
         )
+        self.charm.framework.model.app = self.provider_app
 
     def test_given_auth_mode_config_and_unit_is_leader_when_relation_joined_then_auth_conf_is_set_in_relation_databag(
         self,
@@ -92,11 +93,12 @@ class TestGrafanaAuthProvides(unittest.TestCase):
         event = Mock()
         event.relation.id = 1
         event.relation.data = {
-            self.requirer_app: {},
+            self.provider_app: {},
         }
-        event.app = self.requirer_app
         self.grafana_auth_provides._set_auth_config_in_relation_data(event)
-        actual_conf_dict = _load_relation_data(event.relation.data[event.app]).get("grafana_auth")
+        actual_conf_dict = _load_relation_data(event.relation.data[self.provider_app]).get(
+            "grafana_auth"
+        )
         self.assertDictEqual(expected_conf_dict, actual_conf_dict)  # type: ignore[arg-type]
 
     def test_given_auth_mode_config_and_unit_is_not_leader_when_relation_joined_then_auth_conf_is_not_set_in_relation_databag(
@@ -104,12 +106,11 @@ class TestGrafanaAuthProvides(unittest.TestCase):
     ):
         self.provider_unit.set_leader(False)
         event = Mock()
-        event.app = self.requirer_app
         event.relation.data = {
-            self.requirer_app: {},
+            self.provider_app: {},
         }
         self.grafana_auth_provides._set_auth_config_in_relation_data(event)
-        relation_data = _load_relation_data(event.relation.data[event.app])
+        relation_data = _load_relation_data(event.relation.data[self.provider_app])
         self.assertNotIn("grafana_auth", relation_data)
 
     @patch(
@@ -126,9 +127,14 @@ class TestGrafanaAuthProvides(unittest.TestCase):
             self.requirer_app: {"grafana_url": json.dumps(grafana_url)},
         }
         event.app = self.requirer_app
+        relation_id = 1
+        event.relation.id = relation_id
         self.grafana_auth_provides._on_grafana_auth_relation_changed(event)
         calls = [
-            call().emit(grafana_url=grafana_url),
+            call().emit(
+                grafana_url=grafana_url,
+                relation_id=relation_id,
+            ),
         ]
         patch_emit.assert_has_calls(calls, any_order=True)
 
@@ -212,6 +218,7 @@ class TestGrafanaAuthRequires(unittest.TestCase):
         self.grafana_auth_requires = GrafanaAuthRequires(
             self.charm, relationship_name=RELATIONSHIP_NAME, grafana_url=GRAFANA_URL
         )
+        self.charm.framework.model.app = self.requirer_app
 
     def test_given_unit_is_leader_when_relation_joined_then_grafana_url_is_set_in_relation_databag(
         self,
@@ -221,11 +228,12 @@ class TestGrafanaAuthRequires(unittest.TestCase):
         event = Mock()
         event.relation.id = 1
         event.relation.data = {
-            self.provider_app: {},
+            self.requirer_app: {},
         }
-        event.app = self.provider_app
         self.grafana_auth_requires._set_grafana_url_in_relation_data(event)
-        actual_grafana_url = _load_relation_data(event.relation.data[event.app]).get("grafana_url")
+        actual_grafana_url = _load_relation_data(event.relation.data[self.requirer_app]).get(
+            "grafana_url"
+        )
         self.assertDictEqual(expected_grafana_url, actual_grafana_url)  # type: ignore[arg-type]
 
     def test_given_unit_is_not_leader_when_relation_joined_then_grafana_url_is_not_set_in_relation_databag(
@@ -235,11 +243,10 @@ class TestGrafanaAuthRequires(unittest.TestCase):
         event = Mock()
         event.relation.id = 1
         event.relation.data = {
-            self.provider_app: {},
+            self.requirer_app: {},
         }
-        event.app = self.provider_app
         self.grafana_auth_requires._set_grafana_url_in_relation_data(event)
-        relation_data = _load_relation_data(event.relation.data[event.app])
+        relation_data = _load_relation_data(event.relation.data[self.requirer_app])
         self.assertNotIn("grafana_url", relation_data)
 
     @patch(
@@ -264,8 +271,15 @@ class TestGrafanaAuthRequires(unittest.TestCase):
             self.provider_app: {"grafana_auth": json.dumps(conf_dict)},
         }
         event.app = self.provider_app
+        relation_id = 1
+        event.relation.id = relation_id
         self.grafana_auth_requires._on_grafana_auth_relation_changed(event)
-        calls = [call().emit(auth_conf=conf_dict)]
+        calls = [
+            call().emit(
+                auth_conf=conf_dict,
+                relation_id=relation_id,
+            )
+        ]
         patch_emit.assert_has_calls(calls, any_order=True)
 
     @patch(

@@ -33,7 +33,7 @@ class ExampleProviderCharm(CharmBase):
             auto_sign_up=False,
         )
         self.framework.observe(
-            self.grafana_auth.on.grafana_url_available, self._on_grafana_url_available
+            self.grafana_auth.on.url_available, self._on_url_available
         )
 ```
 ### Requirer charm
@@ -88,8 +88,8 @@ PROVIDER_JSON_SCHEMA = {
                 "auth": {
                     "proxy": {
                         "enabled": True,
-                        "header_name": "some-header",
-                        "header_property": "some-header-property",
+                        "header_name": "X-WEBAUTH-USER",
+                        "header_property": "username",
                         "auto_sign_up": False,
                         "sync_ttl": 36200,
                         "whitelist": [
@@ -234,53 +234,37 @@ REQUIRER_JSON_SCHEMA = {
 
 logger = logging.getLogger(__name__)
 
-def _load_relation_data(raw_relation_data: dict) -> dict:
-    """Loads relation data from the relation data bag.
-    Json loads all data.
-    Args:
-        raw_relation_data: Relation data from the databag
-    Returns:
-        dict: Relation data in dict format.
-    """
-    relation_data_dict = dict()
-    for key in raw_relation_data:
-        try:
-            relation_data_dict[key] = json.loads(raw_relation_data[key])
-        except json.decoder.JSONDecodeError:
-            relation_data_dict[key] = raw_relation_data[key]
-    return relation_data_dict
 
+class UrlAvailableEvent(EventBase):
+    """Charm event triggered when provider charm extracts the url from relation data"""
 
-class GrafanaUrlAvailableEvent(EventBase):
-    """Charm event triggered when provider charm extracts grafana url from relation data"""
-
-    def __init__(self, handle, grafana_url: dict, relation_id: int):
+    def __init__(self, handle, url: str, relation_id: int):
         super().__init__(handle)
-        self.grafana_url = grafana_url
+        self.url = url
         self.relation_id = relation_id
 
     def snapshot(self) -> dict:
         """Returns snapshot."""
         return {
-            "grafana_url": self.grafana_url,
+            "url": self.url,
             "relation_id": self.relation_id,
         }
 
     def restore(self, snapshot: dict):
         """Restores snapshot."""
-        self.grafana_url = snapshot["grafana_url"]
+        self.url = snapshot["url"]
         self.relation_id = snapshot["relation_id"]
 
 
-class GrafanaAuthProviderCharmEvents(CharmEvents):
-    """List of events that the grafana auth provider charm can leverage."""
+class AuthProviderCharmEvents(CharmEvents):
+    """List of events that the auth provider charm can leverage."""
 
-    grafana_url_available = EventSource(GrafanaUrlAvailableEvent)
+    url_available = EventSource(UrlAvailableEvent)
 
 class GrafanaAuthProvides(Object):
     """Grafana authentication configuration provider class to be initialized by grafana-auth providers"""
 
-    on = GrafanaAuthProviderCharmEvents()
+    on = AuthProviderCharmEvents()
 
     def __init__(self, charm: CharmBase, relationship_name: str, auth_type: str, **kwargs):
         super().__init__(charm, relationship_name)
@@ -291,20 +275,18 @@ class GrafanaAuthProvides(Object):
             charm.on[relationship_name].relation_joined, self._set_auth_config_in_relation_data
         )
         self.framework.observe(
-            charm.on[relationship_name].relation_changed, self._on_grafana_auth_relation_changed
+            charm.on[relationship_name].relation_changed, self._on_auth_relation_changed
         )
 
     def _build_conf_dict(self, auth_type, **kwargs) -> dict:
-        """Builds a dictionary for grafana authentication that matches the json schema of the provider.
+        """Builds a dictionary for authentication configuration that matches the json schema of the provider.
         Args:
             auth_type (str): authentication type to be set in the configuration dict.
             kwargs: key and value pairs provided to configure authentication mode.
         Returns:
             dict: Authentication configuration as a dictionary.
         """
-        conf_dict = dict()
-        conf_dict["auth"]= {auth_type:{ key:value for key, value in kwargs.items()}}
-        return conf_dict
+        return {auth_type: { key:value for key, value in kwargs.items()}}
 
     def _set_auth_config_in_relation_data(self, event: RelationJoinedEvent) -> None:
         """Handler triggered on relation joined event. Adds authentication config to relation data.
@@ -315,18 +297,12 @@ class GrafanaAuthProvides(Object):
         """
         if not self._charm.unit.is_leader():
             return
-        grafana_auth_relation = self.model.get_relation(
-            relation_name=self._relationship_name, relation_id=event.relation.id
-        )
         relation_data = event.relation.data[self.model.app]
-        relation_data_dict = _load_relation_data(relation_data)
-        current_auth_conf = relation_data_dict.get("grafana_auth")
-        if not current_auth_conf:
-            relation_data["grafana_auth"] = json.dumps(self._auth_conf)
+        relation_data["auth"] = json.dumps(self._auth_conf)
 
-    def _on_grafana_auth_relation_changed(self,event: RelationChangedEvent) -> None:
+    def _on_auth_relation_changed(self,event: RelationChangedEvent) -> None:
         """Handler triggered on relation changed events. 
-        Extracts grafana url from relation data and emits grafana_url_available event
+        Extracts grafana url from relation data and emits the url_available event
         Args:
             event: Juju event
         Returns:
@@ -334,105 +310,71 @@ class GrafanaAuthProvides(Object):
         """
         if not self._charm.unit.is_leader():
             return
-        relation_data = _load_relation_data(event.relation.data[event.app])
-        if not relation_data:
-            logger.info("No relation data")
+
+        url_json = event.relation.data[event.app].get("url", "")
+        if not url_json:
+            logger.warning("No url found in relation data")
             return
-        grafana_url = relation_data.get("grafana_url")
-        if not grafana_url:
-            logger.warning("No Grafana url")
-            return
-        if not self._app_relation_data_is_valid(grafana_url):
+
+        url = json.loads(url_json)
+
+        try:
+            validate({"application-data":{"url":url}}, REQUIRER_JSON_SCHEMA)
+        except:
             logger.warning("Relation data did not pass JSON Schema validation")
             return
-        self.on.grafana_url_available.emit(
-            grafana_url=grafana_url,
+
+        self.on.url_available.emit(
+            url=url,
             relation_id=event.relation.id,
         )
 
-    @staticmethod
-    def _app_relation_data_is_valid(app_relation_data) -> bool:
-        """Uses JSON schema validator to authentication configuration content.
-        Args:
-            auth_conf (str): authentication configuration set by the provider charm.
-        Returns:
-            bool: True/False depending on whether the configuration follows the json schema.
-        """
-        relation_data = {"application-data" : app_relation_data}
-        try:
-            validate(instance=relation_data, schema=REQUIRER_JSON_SCHEMA)
-            return True
-        except exceptions.ValidationError:
-            return False
-
 
 class AuthConfAvailableEvent(EventBase):
-    """Charm Event triggered when Authentication config is ready."""
+    """Charm Event triggered when authentication config is ready."""
 
-    def __init__(self, handle, auth_conf: dict, relation_id: int):
+    def __init__(self, handle, auth: dict, relation_id: int):
         super().__init__(handle)
-        self.auth_conf = auth_conf
+        self.auth = auth
         self.relation_id = relation_id
 
     def snapshot(self) -> dict:
         """Returns snapshot."""
         return {
-            "auth_conf": self.auth_conf,
+            "auth": self.auth,
             "relation_id": self.relation_id,
         }
 
     def restore(self, snapshot: dict):
         """Restores snapshot."""
-        self.auth_conf = snapshot["auth_conf"]
+        self.auth = snapshot["auth"]
         self.relation_id = snapshot["relation_id"]
 
 
-class AuthConfRevokedEvent(EventBase):
-    """Charm event triggered when the auth config set by this relation is revoked"""
-
-    def __init__(self, handle, revoked_auth_modes: list, relation_id: int):
-        super().__init__(handle)
-        self.revoked_auth_modes = revoked_auth_modes
-        self.relation_id = relation_id
-
-    def snapshot(self) -> dict:
-        """Returns snapshot."""
-        return {
-            "revoked_auth_modes": self.revoked_auth_modes,
-            "relation_id": self.relation_id,
-        }
-
-    def restore(self, snapshot: dict):
-        """Restores snapshot."""
-        self.revoked_auth_modes = snapshot["revoked_auth_modes"]
-        self.relation_id = snapshot["relation_id"]
-
-
-class GrafanaAuthRequirerCharmEvents(CharmEvents):
+class AuthRequirerCharmEvents(CharmEvents):
     """List of events that the grafana auth requirer charm can leverage."""
 
-    grafana_auth_config_available = EventSource(AuthConfAvailableEvent)
-    grafana_auth_config_revoked = EventSource(AuthConfRevokedEvent)
+    auth_conf_available = EventSource(AuthConfAvailableEvent)
 
 
 class GrafanaAuthRequires(Object):
     """Grafana authentication configuration requirer class to be initialized by grafana-auth requirers"""
 
-    on = GrafanaAuthRequirerCharmEvents()
+    on = AuthRequirerCharmEvents()
 
-    def __init__(self, charm, relationship_name: str, grafana_url: str):
+    def __init__(self, charm, relationship_name: str, url: str):
         super().__init__(charm, relationship_name)
         self._charm = charm
         self._relationship_name = relationship_name
-        self._grafana_url = {"url": grafana_url}
+        self._url = url
         self.framework.observe(
-            charm.on[relationship_name].relation_changed, self._on_grafana_auth_relation_changed
+            charm.on[relationship_name].relation_changed, self._on_auth_relation_changed
         )
         self.framework.observe(
-            charm.on[relationship_name].relation_joined, self._set_grafana_url_in_relation_data
+            charm.on[relationship_name].relation_joined, self._set_url_in_relation_data
         )
 
-    def _on_grafana_auth_relation_changed(self, event) -> None:
+    def _on_auth_relation_changed(self, event) -> None:
         """Handler triggered on relation changed events.
         Args:
             event: Juju event
@@ -441,24 +383,28 @@ class GrafanaAuthRequires(Object):
         """
         if not self._charm.unit.is_leader():
             return
-        relation_data = _load_relation_data(event.relation.data[event.app])
-        if not relation_data:
-            logger.info("No relation data")
+
+        auth_conf_json = event.relation.data[event.app].get("auth", "")
+
+        if not auth_conf_json:
+            logger.warning("No authentication config found in relation data")
             return
-        auth_conf = relation_data.get("grafana_auth")
-        if not auth_conf:
-            logger.warning("No authentication config")
-            return
-        if not self._app_relation_data_is_valid(auth_conf):
+
+        auth_conf = json.loads(auth_conf_json)
+
+        try:
+            validate({"application-data":{"auth":auth_conf}}, PROVIDER_JSON_SCHEMA)
+        except:
             logger.warning("Relation data did not pass JSON Schema validation")
             return
-        self.on.grafana_auth_config_available.emit(
-            auth_conf=auth_conf,
+
+        self.on.auth_conf_available.emit(
+            auth=auth_conf,
             relation_id=event.relation.id,
         )
 
-    def _set_grafana_url_in_relation_data(self, event: RelationJoinedEvent) -> None:
-        """Handler triggered on relation joined events. Adds Grafana URL to relation data. 
+    def _set_url_in_relation_data(self, event: RelationJoinedEvent) -> None:
+        """Handler triggered on relation joined events. Adds URL to relation data.
         Args:
             event: Juju event
         Returns:
@@ -466,26 +412,5 @@ class GrafanaAuthRequires(Object):
         """
         if not self._charm.unit.is_leader():
             return
-        grafana_auth_relation = self.model.get_relation(
-            relation_name=self._relationship_name, relation_id=event.relation.id
-        )
         relation_data = event.relation.data[self.model.app]
-        relation_data_dict = _load_relation_data(relation_data)
-        current_url = relation_data_dict.get("grafana_url")
-        if not current_url:
-            relation_data["grafana_url"] = json.dumps(self._grafana_url)
-
-    @staticmethod
-    def _app_relation_data_is_valid(app_relation_data) -> bool:
-        """Uses JSON schema validator to authentication configuration content.
-        Args:
-            auth_conf (str): authentication configuration set by the provider charm.
-        Returns:
-            bool: True/False depending on whether the configuration follows the json schema.
-        """
-        relation_data = {"application-data" : app_relation_data}
-        try:
-            validate(instance=relation_data, schema=PROVIDER_JSON_SCHEMA)
-            return True
-        except exceptions.ValidationError:
-            return False
+        relation_data["url"] = json.dumps(self._url)

@@ -2,7 +2,7 @@
 
 ## Description
 
-This project contains libraries for the grafana-auth relationship. It contains both the provider and the requirer side of them.
+This project contains libraries for the grafana-auth relationship. It contains both the provider and the requirer sides.
 
 > Warning: The charm located here is a placeholder charm and should not be packed nor deployed.
 

@@ -2,15 +2,7 @@
 # See LICENSE file for licensing details.
 
 name: grafana-auth-interface
-display-name: |
-  grafana-auth-interface
 description: |
   Placeholder charm
 summary: |
   Placeholder charm
-
-resources:
-  placeholder-image:
-    type: oci-image
-    description: Placeholder for OCI image
-

@@ -2,7 +2,7 @@
 # See LICENSE file for licensing details.
 
 """grafana-auth interface library.
-This library implements the grafana-auth relation interface, it contains the Requires and Provides classes for handling
+This library implements the grafana-auth relation interface, it contains the Requirer and Provider classes for handling
 the interface.
 This library is designed to allow charms to configure authentication to Grafana, 
 the provider will set the authentication mode that it needs and will pass the necessary configuration of that authentication mode.
@@ -18,52 +18,88 @@ You will also need to add the following library to the charm's `requirements.txt
 
 ### Provider charm
 Example:
+An example on how to use the AuthProvider with proxy authentication mode using default configuration options.
+The default arguments are:
+    `charm : CharmBase`
+    `relationship_name: str : grafana-auth`
+    `header_name: str : X-WEBAUTH-USER`
+    `header_property: str : username`
+    `auto_sign_up: bool : True`
+    `sync_ttl: int : None`
+    `whitelist: list[str] : None`
+    `headers: list[str] : None`
+    `headers_encoded: bool : None`
+    `enable_login_token: bool : None`
 ```python
-from charms.grafana_auth_interface.v0.grafana_auth_interface import GrafanaAuthProvides
+from charms.grafana_auth_interface.v0.grafana_auth_interface import GrafanaAuthProxyProvider
 from ops.charm import CharmBase
 class ExampleProviderCharm(CharmBase):
     def __init__(self, *args):
         super().__init__(*args)
-        self.grafana_auth = GrafanaAuthProvides(
+        ...
+        self.grafana_auth_proxy_provider = GrafanaAuthProxyProvider(self)
+        self.framework.observe(
+            self.grafana_auth_proxy_provider.on.urls_available, self._on_urls_available
+        )
+        ...
+```
+Values different than defaults must be set from the class constructor.
+The [official documentation](https://grafana.com/docs/grafana/latest/setup-grafana/configure-security/configure-authentication/auth-proxy/)
+of Grafana provides further explanation on the values that can be assigned to the different variables.
+Example:
+```python
+from charms.grafana_auth_interface.v0.grafana_auth_interface import GrafanaAuthProxyProvider
+from ops.charm import CharmBase
+class ExampleProviderCharm(CharmBase):
+    def __init__(self, *args):
+        super().__init__(*args)
+        ...
+        self.grafana_auth_proxy_provider = GrafanaAuthProxyProvider(
             self,
-            relationship_name='grafana_auth'
-            auth_type='proxy', 
-            header_name="X-WEBAUTH-USER",
-            header_property="username",
+            header_property="email",
             auto_sign_up=False,
+            whitelist=["localhost","canonical.com"],
         )
         self.framework.observe(
-            self.grafana_auth.on.url_available, self._on_url_available
+            self.grafana_auth_proxy_provider.on.urls_available, self._on_urls_available
         )
+        ...
 ```
 ### Requirer charm
 Example:
+An example on how to use the auth requirer.
 ```python
-from charms.grafana_auth_interface.v0.grafana_auth_interface import GrafanaAuthRequires
+from charms.grafana_auth_interface.v0.grafana_auth_interface import AuthRequirer
 from ops.charm import CharmBase
 class ExampleRequirerCharm(CharmBase):
     def __init__(self, *args):
         super().__init__(*args)
-        self.grafana_auth = GrafanaAuthRequires(
+        self.grafana_auth_requirer = AuthRequirer(
             self,
-            relationship_name="grafana_auth",
-            grafana_url="https://grafana.example.com/"
+            grafana_auth_requirer=["https://grafana.example.com/"]
         )
         self.framework.observe(
-            self.grafana_auth.on.grafana_auth_config_available, self._on_grafana_auth_config_available
+            self.grafana_auth_requirer.on.auth_config_available, self._on_auth_config_available
         )
 ```
 """
 import json
-import logging
 from jsonschema import exceptions, validate  # type: ignore[import]
-from ops.framework import EventBase, EventSource, Object
+import logging
+from ops.framework import (
+    EventBase,
+    EventSource,
+    Object,
+    StoredList,
+    StoredDict,
+)
 from ops.charm import (
     CharmBase,
     CharmEvents,
     RelationChangedEvent,
     RelationJoinedEvent,
 )
+from typing import List, Dict, Any
 
 # The unique Charmhub library identifier, never change it
 LIBID = "bd7d0356fdc74c65bb206be3b843fbfa"
@@ -75,12 +111,13 @@ LIBAPI = 0
 # to 0 if you are raising the major API version
 LIBPATCH = 1
 
-PROVIDER_JSON_SCHEMA = {
+AUTH_PROXY_PROVIDER_JSON_SCHEMA = {
     "$schema": "http://json-schema.org/draft-07/schema",
     "$id": "https://canonical.github.io/charm-relation-interfaces/grafana_auth/schemas/provider.json",
     "type": "object",
     "title": "`grafana_auth` provider schema",
     "description": "The `grafana_auth` root schema comprises the entire provider databag for this interface.",
+    "documentation": "https://grafana.com/docs/grafana/latest/setup-grafana/configure-security/configure-authentication/auth-proxy/",
     "default": {},
     "examples": [
         {
@@ -90,18 +127,7 @@ PROVIDER_JSON_SCHEMA = {
                         "enabled": True,
                         "header_name": "X-WEBAUTH-USER",
                         "header_property": "username",
-                        "auto_sign_up": False,
-                        "sync_ttl": 36200,
-                        "whitelist": [
-                            "localhost",
-                            "canonical.com"
-                        ],
-                        "headers": [
-                            "some-header",
-                            "some-other-header"
-                        ],
-                        "headers_encoded": True,
-                        "enable_login_token": True
+                        "auto_sign_up": True,
                     }
                 }
             }
@@ -196,7 +222,6 @@ PROVIDER_JSON_SCHEMA = {
     },
     "additionalProperties": True
 }
-
 REQUIRER_JSON_SCHEMA = {
     "$schema": "http://json-schema.org/draft-07/schema",
     "$id": "https://canonical.github.io/charm-relation-interfaces/interfaces/grafana_auth/schemas/requirer.json",
@@ -207,7 +232,7 @@ REQUIRER_JSON_SCHEMA = {
     "examples": [
         {
             "application-data": {
-                "url": "https://grafana.example.com/"
+                "urls": ["https://grafana.example.com/"]
             }
         }
     ],
@@ -221,72 +246,79 @@ REQUIRER_JSON_SCHEMA = {
             "type": "object",
             "additionalProperties": True,
             "required": [
-                "url"
+                "urls"
             ],
-            "url": {
-                "$id": "#/properties/application-data/url",
-                "type": "string"
+            "urls": {
+                "$id": "#/properties/application-data/urls",
+                "type": "list"
             }
         }
     },
     "additionalProperties": True
 }
 
+DEFAULT_RELATION_NAME = "grafana-auth"
+AUTH = "auth"
 logger = logging.getLogger(__name__)
 
+def _type_convert_stored(obj):
+    """Convert Stored* to their appropriate types, recursively."""
+    if isinstance(obj, StoredList):
+        return list(map(_type_convert_stored, obj))
+    elif isinstance(obj, StoredDict):
+        rdict = {}  # type: Dict[Any, Any]
+        for k in obj.keys():
+            rdict[k] = _type_convert_stored(obj[k])
+        return rdict
+    else:
+        return obj
 
-class UrlAvailableEvent(EventBase):
-    """Charm event triggered when provider charm extracts the url from relation data"""
+class UrlsAvailableEvent(EventBase):
+    """Charm event triggered when provider charm extracts the urls from relation data"""
 
-    def __init__(self, handle, url: str, relation_id: int):
+    def __init__(self, handle, urls: list, relation_id: int):
         super().__init__(handle)
-        self.url = url
+        self.urls = urls
         self.relation_id = relation_id
 
     def snapshot(self) -> dict:
         """Returns snapshot."""
         return {
-            "url": self.url,
+            "urls": self.urls,
             "relation_id": self.relation_id,
         }
 
     def restore(self, snapshot: dict):
         """Restores snapshot."""
-        self.url = snapshot["url"]
+        self.urls = _type_convert_stored(snapshot["urls"])
         self.relation_id = snapshot["relation_id"]
 
 
 class AuthProviderCharmEvents(CharmEvents):
     """List of events that the auth provider charm can leverage."""
 
-    url_available = EventSource(UrlAvailableEvent)
+    urls_available = EventSource(UrlsAvailableEvent)
 
-class GrafanaAuthProvides(Object):
-    """Grafana authentication configuration provider class to be initialized by grafana-auth providers"""
+class AuthProvider(Object):
+    """Authentication configuration provider class to be initialized by auth providers"""
 
     on = AuthProviderCharmEvents()
 
-    def __init__(self, charm: CharmBase, relationship_name: str, auth_type: str, **kwargs):
+    def __init__(self, charm: CharmBase, relationship_name: str):
         super().__init__(charm, relationship_name)
+        self._auth_config = None
         self._charm = charm
         self._relationship_name = relationship_name
-        self._auth_conf = self._build_conf_dict(auth_type, **kwargs)
+        container = list(self._charm.meta.containers.values())[0]
+        if len(self._charm.meta.containers) == 1:
+            refresh_event = self._charm.on[container.name.replace("-", "_")].pebble_ready
+            self.framework.observe(refresh_event, self._get_urls_from_relation_data)
         self.framework.observe(
             charm.on[relationship_name].relation_joined, self._set_auth_config_in_relation_data
         )
         self.framework.observe(
-            charm.on[relationship_name].relation_changed, self._on_auth_relation_changed
+            charm.on[relationship_name].relation_changed, self._get_urls_from_relation_data
         )
-
-    def _build_conf_dict(self, auth_type, **kwargs) -> dict:
-        """Builds a dictionary for authentication configuration that matches the json schema of the provider.
-        Args:
-            auth_type (str): authentication type to be set in the configuration dict.
-            kwargs: key and value pairs provided to configure authentication mode.
-        Returns:
-            dict: Authentication configuration as a dictionary.
-        """
-        return {auth_type: { key:value for key, value in kwargs.items()}}
 
     def _set_auth_config_in_relation_data(self, event: RelationJoinedEvent) -> None:
         """Handler triggered on relation joined event. Adds authentication config to relation data.
@@ -296,38 +328,54 @@ class GrafanaAuthProvides(Object):
             None
         """
         if not self._charm.unit.is_leader():
+            event.defer()
             return
+        if not self._auth_config:
+            logger.warning(
+                "No authentication configuration was given by for application {} , it won't be set in relation {}"
+                .format(self.model.app, event.relation.id)
+            )
+            return
+        if not self._validate_auth_config_json_schema():
+            logger.warning(
+                "Authentication configuration provided by application {} did not pass JSON schema validation, it won't be set in relation {}"
+                .format(self.model.app, event.relation.id)
+            )
         relation_data = event.relation.data[self.model.app]
-        relation_data["auth"] = json.dumps(self._auth_conf)
+        relation_data[AUTH] = json.dumps(self._auth_config)
 
-    def _on_auth_relation_changed(self,event: RelationChangedEvent) -> None:
+    def _get_urls_from_relation_data(self,event: CharmEvents) -> None:
         """Handler triggered on relation changed events. 
-        Extracts grafana url from relation data and emits the url_available event
+        Extracts urls from relation data and emits the urls_available event
         Args:
             event: Juju event
         Returns:
             None
         """
         if not self._charm.unit.is_leader():
+            event.defer()
             return
 
-        url_json = event.relation.data[event.app].get("url", "")
-        if not url_json:
-            logger.warning("No url found in relation data")
+        relation = self._charm.model.get_relation(self._relationship_name)
+        urls_json = relation.data[relation.app].get("urls", "")
+        if not urls_json:
+            logger.warning("No urls found in relation data")
             return
 
-        url = json.loads(url_json)
+        urls = json.loads(urls_json)
 
-        try:
-            validate({"application-data":{"url":url}}, REQUIRER_JSON_SCHEMA)
-        except:
-            logger.warning("Relation data did not pass JSON Schema validation")
-            return
-
-        self.on.url_available.emit(
-            url=url,
-            relation_id=event.relation.id,
+        self.on.urls_available.emit(
+            urls=urls,
+            relation_id = relation.id
         )
+
+    def _validate_auth_config_json_schema(self) -> bool:
+        """Validates authentication configuration using json schemas
+        Returns:
+            bool: Whether the configuration is valid or not based on the json schema.
+        """
+        return False
+
 
 
 class AuthConfAvailableEvent(EventBase):
@@ -341,50 +389,56 @@ class AuthConfAvailableEvent(EventBase):
     def snapshot(self) -> dict:
         """Returns snapshot."""
         return {
-            "auth": self.auth,
+            AUTH : self.auth,
             "relation_id": self.relation_id,
         }
 
     def restore(self, snapshot: dict):
         """Restores snapshot."""
-        self.auth = snapshot["auth"]
+        self.auth = _type_convert_stored(snapshot[AUTH])
         self.relation_id = snapshot["relation_id"]
 
 
 class AuthRequirerCharmEvents(CharmEvents):
-    """List of events that the grafana auth requirer charm can leverage."""
+    """List of events that the auth requirer charm can leverage."""
 
     auth_conf_available = EventSource(AuthConfAvailableEvent)
 
 
-class GrafanaAuthRequires(Object):
-    """Grafana authentication configuration requirer class to be initialized by grafana-auth requirers"""
+class AuthRequirer(Object):
+    """Authentication configuration requirer class to be initialized by auth requirers"""
 
     on = AuthRequirerCharmEvents()
 
-    def __init__(self, charm, relationship_name: str, url: str):
+    def __init__(self, charm, relationship_name: str, urls: list):
         super().__init__(charm, relationship_name)
         self._charm = charm
         self._relationship_name = relationship_name
-        self._url = url
+        self._urls = urls
+        container = list(self._charm.meta.containers.values())[0]
+        if len(self._charm.meta.containers) == 1:
+            refresh_event = self._charm.on[container.name.replace("-", "_")].pebble_ready
+            self.framework.observe(refresh_event, self._get_auth_config_from_relation_data)
         self.framework.observe(
-            charm.on[relationship_name].relation_changed, self._on_auth_relation_changed
+            charm.on[relationship_name].relation_changed, self._get_auth_config_from_relation_data
         )
         self.framework.observe(
-            charm.on[relationship_name].relation_joined, self._set_url_in_relation_data
+            charm.on[relationship_name].relation_joined, self._set_urls_in_relation_data
         )
 
-    def _on_auth_relation_changed(self, event) -> None:
-        """Handler triggered on relation changed events.
+    def _get_auth_config_from_relation_data(self, event: CharmEvents) -> None:
+        """Extracts authentication config from relation data and emits an event that contains the config.
         Args:
             event: Juju event
         Returns:
             None
         """
         if not self._charm.unit.is_leader():
+            event.defer()
             return
 
-        auth_conf_json = event.relation.data[event.app].get("auth", "")
+        relation = self._charm.model.get_relation(self._relationship_name)
+        auth_conf_json = relation.data[relation.app].get(AUTH, "")
 
         if not auth_conf_json:
             logger.warning("No authentication config found in relation data")
@@ -392,25 +446,99 @@ class GrafanaAuthRequires(Object):
 
         auth_conf = json.loads(auth_conf_json)
 
-        try:
-            validate({"application-data":{"auth":auth_conf}}, PROVIDER_JSON_SCHEMA)
-        except:
-            logger.warning("Relation data did not pass JSON Schema validation")
-            return
-
         self.on.auth_conf_available.emit(
             auth=auth_conf,
-            relation_id=event.relation.id,
+            relation_id=relation.id,
         )
 
-    def _set_url_in_relation_data(self, event: RelationJoinedEvent) -> None:
-        """Handler triggered on relation joined events. Adds URL to relation data.
+    def _set_urls_in_relation_data(self, event: RelationJoinedEvent) -> None:
+        """Handler triggered on relation joined events. Adds URL(s) to relation data.
         Args:
             event: Juju event
         Returns:
             None
         """
         if not self._charm.unit.is_leader():
+            event.defer()
+            return
+        if not self._urls:
+            logger.warning(
+                "No urls were given for application {}, urls won't be set in relation {}"
+                .format(self.model.app, event.relation.id)
+            )
+            return
+        try:
+            validate({"application-data":{"urls":self._urls}}, REQUIRER_JSON_SCHEMA)
+        except:
+            logger.warning(
+                "urls provided by application {} did not pass JSON schema validation, urls won't be set in relation {}"
+                .format(self.model.app, event.relation.id)
+            )
             return
         relation_data = event.relation.data[self.model.app]
-        relation_data["url"] = json.dumps(self._url)
+        relation_data["urls"] = json.dumps(self._urls)
+
+
+class GrafanaAuthProxyProvider(AuthProvider):
+    """Provider object for Grafana Auth.
+    Uses Proxy as the authentication mode and provider and interface to configure Proxy authentication to Grafana
+    """
+    _AUTH_TYPE = "proxy"
+    _ENABLED = True
+
+    def __init__(
+        self,
+        charm : CharmBase,
+        relationship_name : str = DEFAULT_RELATION_NAME,
+        header_name : str =  "X-WEBAUTH-USER",
+        header_property : str = "username",
+        auto_sign_up : bool = True,
+        sync_ttl : int = None,
+        whitelist : List[str] = None,
+        headers : List[str] = None,
+        headers_encoded : bool = None,
+        enable_login_token : bool = None,
+        ) -> None:
+        """Constructs GrafanaAuthProxyProvider
+        Args:
+            charm : CharmBase : the charm which manages this object.
+            relationship_name : str : name of the relation that provider the Grafana authentication config.
+            header_name : str : HTTP Header name that will contain the username or email
+            header_property : str : HTTP Header property, defaults to username but can also be email.
+            auto_sign_up : bool : Set to `true` to enable auto sign up of users who do not exist in Grafana DB.
+            sync_ttl : int : Define cache time to live in minutes.
+            whitelist : list[str] : Limits where auth proxy requests come from by configuring a list of IP addresses.
+            headers : list[str]
+            headers_encoded : bool
+            enable_login_token : bool
+        Returns:
+            None
+        """
+        super().__init__(charm, relationship_name)
+        config_options = { }
+        config_options["enabled"] = self._ENABLED
+        config_options["header_name"] = header_name
+        config_options["header_property"] = header_property
+        config_options["auto_sign_up"] = auto_sign_up
+        if sync_ttl is not None:
+            config_options["sync_ttl"] = sync_ttl
+        if whitelist is not None and whitelist:
+            config_options["whitelist"] = whitelist
+        if headers is not None and headers:
+            config_options["headers"] = headers
+        if headers_encoded is not None:
+            config_options["headers_encoded"] = headers_encoded
+        if enable_login_token is not None:
+            config_options["enable_login_token"] = enable_login_token
+        self._auth_config = {self._AUTH_TYPE: config_options}
+    
+    def _validate_auth_config_json_schema(self) -> bool:
+        """Validates authentication configuration using json schemas
+        Returns:
+            bool: Whether the configuration is valid or not based on the json schema.
+        """
+        try:
+            validate({"application-data":{"auth":self._auth_config}}, AUTH_PROXY_PROVIDER_JSON_SCHEMA)
+            return True
+        except:
+            return False

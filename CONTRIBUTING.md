@@ -2,10 +2,12 @@
 
 ## Developing
 
-Create and activate a virtualenv with the development requirements:
+You can use the environments created by `tox` for development:
 
-    virtualenv -p python3 venv
-    source venv/bin/activate
+```bash
+tox --notest -e unit
+source .tox/unit/bin/activate
+```
 
 ## Testing
 

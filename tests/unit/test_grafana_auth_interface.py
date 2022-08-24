@@ -69,6 +69,8 @@ class TestAuthProvider(unittest.TestCase):
         self.provider_app = AppMock(name=PROVIDER_APP_NAME)
         self.requirer_app = AppMock(name=REQUIRER_APP_NAME)
         self.charm.unit = self.provider_unit
+        self.charm.app = self.provider_app
+        self.charm.model = Mock()
         self.grafana_auth_provider = GrafanaAuthProxyProvider(
             charm=self.charm,
         )
@@ -116,12 +118,14 @@ class TestAuthProvider(unittest.TestCase):
     ):
         self.provider_unit.set_leader(True)
         event = Mock()
-        event.relation.data = {
+        relation_id = 1
+        relation = Mock()
+        relation.data = {
             self.requirer_app: {"urls": json.dumps(EXAMPLE_URLS)},
         }
-        event.app = self.requirer_app
-        relation_id = 1
-        event.relation.id = relation_id
+        relation.id = relation_id
+        relation.app = self.requirer_app
+        self.charm.model.get_relation.return_value = relation
         self.grafana_auth_provider._get_urls_from_relation_data(event)
         calls = [
             call().emit(
@@ -152,10 +156,13 @@ class TestAuthProvider(unittest.TestCase):
     ):
         self.provider_unit.set_leader(True)
         event = Mock()
-        event.relation.data = {
+        relation = Mock()
+        relation.data = {
             self.requirer_app: {"not_url": ""},
         }
-        event.app = self.requirer_app
+        relation.id = 1
+        relation.app = self.requirer_app
+        self.charm.model.get_relation.return_value = relation
         self.grafana_auth_provider._get_urls_from_relation_data(event)
         patch_emit.assert_not_called()
 
@@ -171,7 +178,6 @@ class TestAuthProvider(unittest.TestCase):
         event.relation.data = {
             self.requirer_app: {"urls": EXAMPLE_URLS},
         }
-        event.app = self.requirer_app
         self.grafana_auth_provider._get_urls_from_relation_data(event)
         patch_emit.assert_not_called()
 
@@ -185,6 +191,8 @@ class TestAuthRequires(unittest.TestCase):
         self.charm.meta.containers = {"containers": MockContainerMeta()}
         self.charm.on = {RELATIONSHIP_NAME: MockRelation(), EXAMPLE_CONTAINER_NAME: MockRelation()}
         self.charm.unit = self.requirer_unit
+        self.charm.app = self.requirer_app
+        self.charm.model = Mock()
         self.auth_requirer = AuthRequirer(
             self.charm, relationship_name=RELATIONSHIP_NAME, urls=EXAMPLE_URLS
         )
@@ -232,12 +240,14 @@ class TestAuthRequires(unittest.TestCase):
                 "auto_sign_up": AUTO_SIGN_UP,
             }
         }
-        event.relation.data = {
+        relation_id = 1
+        relation = Mock()
+        relation.data = {
             self.provider_app: {"auth": json.dumps(conf_dict)},
         }
-        event.app = self.provider_app
-        relation_id = 1
-        event.relation.id = relation_id
+        relation.id = relation_id
+        relation.app = self.provider_app
+        self.charm.model.get_relation.return_value = relation
         self.auth_requirer._get_auth_config_from_relation_data(event)
         calls = [
             call().emit(
@@ -279,9 +289,13 @@ class TestAuthRequires(unittest.TestCase):
     ):
         self.requirer_unit.set_leader(True)
         event = Mock()
-        event.relation.data = {
+        relation_id = 1
+        relation = Mock()
+        relation.data = {
             self.provider_app: {"not_auth_conf": ""},
         }
-        event.app = self.provider_app
+        relation.id = relation_id
+        relation.app = self.provider_app
+        self.charm.model.get_relation.return_value = relation
         self.auth_requirer._get_auth_config_from_relation_data(event)
         patch_emit.assert_not_called()

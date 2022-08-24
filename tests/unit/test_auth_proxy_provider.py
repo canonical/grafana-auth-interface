@@ -29,7 +29,7 @@ CHARM_LIB_PATH = "charms.grafana_auth_interface.v0.grafana_auth_interface"
 EXAMPLE_URLS = ["www.example.com"]
 
 
-class ProviderDefaultCharm(CharmBase):
+class DefaultAuthProxyProviderCharm(CharmBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args)
         self.proxy_provider = GrafanaAuthProxyProvider(
@@ -39,14 +39,14 @@ class ProviderDefaultCharm(CharmBase):
 
 class TestDefaultGrafanaAuthProxyProvider(unittest.TestCase):
     def setUp(self):
-        self.harness = testing.Harness(ProviderDefaultCharm, meta=METADATA)
+        self.harness = testing.Harness(DefaultAuthProxyProviderCharm, meta=METADATA)
+        self.harness.set_leader(True)
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()
 
-    def test_given_auth_relation_joined_event_when_unit_is_leader_then_auth_config_is_set_in_relation_data(
+    def test_given_unit_is_leader_when_auth_relation_joined_event_then_default_auth_config_is_set_in_relation_data(
         self,
     ):
-        self.harness.set_leader(True)
         relation_id = self.harness.add_relation("grafana-auth", "requirer")
         self.harness.add_relation_unit(relation_id, "requirer/0")
         relation_data = self.harness.get_relation_data(relation_id, self.harness.model.app.name)
@@ -62,7 +62,7 @@ class TestDefaultGrafanaAuthProxyProvider(unittest.TestCase):
         }
         self.assertDictEqual(expected_default_config, auth_config)
 
-    def test_given_auth_relation_joined_event_when_unit_is_not_leader_then_auth_config_is_not_set_in_relation_data(
+    def test_given_unit_is_not_leader_when_auth_relation_joined_event_then_auth_config_is_not_set_in_relation_data(
         self,
     ):
         self.harness.set_leader(False)
@@ -75,10 +75,9 @@ class TestDefaultGrafanaAuthProxyProvider(unittest.TestCase):
         f"{CHARM_LIB_PATH}.AuthProviderCharmEvents.urls_available",
         new_callable=PropertyMock,
     )
-    def test_given_pebble_ready_event_when_urls_in_relation_data_and_unit_is_leader_then_urls_avaialble_event_is_emitted(
+    def test_given_urls_are_in_relation_data_and_unit_is_leader_when_pebble_ready_event_then_urls_avaialble_event_is_emitted(
         self, mock_urls_available_event
     ):
-        self.harness.set_leader(True)
         relation_id = self.harness.add_relation("grafana-auth", "requirer")
         self.harness.add_relation_unit(relation_id, "requirer/0")
         urls = {"urls": json.dumps(EXAMPLE_URLS)}
@@ -102,10 +101,9 @@ class TestDefaultGrafanaAuthProxyProvider(unittest.TestCase):
         f"{CHARM_LIB_PATH}.AuthProviderCharmEvents.urls_available",
         new_callable=PropertyMock,
     )
-    def test_given_relation_changed_event_when_urls_in_relation_data_and_unit_is_leader_then_urls_avaialble_event_is_emitted(
+    def test_given_urls_in_relation_data_and_unit_is_leader_when_relation_changed_event_then_urls_avaialble_event_is_emitted(
         self, mock_urls_available_event
     ):
-        self.harness.set_leader(True)
         relation_id = self.harness.add_relation("grafana-auth", "requirer")
         self.harness.add_relation_unit(relation_id, "requirer/0")
         urls = {"urls": json.dumps(EXAMPLE_URLS)}
@@ -122,10 +120,9 @@ class TestDefaultGrafanaAuthProxyProvider(unittest.TestCase):
         f"{CHARM_LIB_PATH}.AuthProviderCharmEvents.urls_available",
         new_callable=PropertyMock,
     )
-    def test_given_pebble_ready_event_when_relation_not_yet_created_then_urls_avaialble_event_is_not_emitted(
+    def test_given_relation_not_yet_created_when_pebble_ready_event_then_urls_avaialble_event_is_not_emitted(
         self, mock_urls_available_event
     ):
-        self.harness.set_leader(True)
         self.harness.container_pebble_ready("auth-tester")
         mock_urls_available_event.assert_not_called()
 
@@ -133,10 +130,9 @@ class TestDefaultGrafanaAuthProxyProvider(unittest.TestCase):
         f"{CHARM_LIB_PATH}.AuthProviderCharmEvents.urls_available",
         new_callable=PropertyMock,
     )
-    def test_given_relation_changed_event_when_urls_are_not_in_relation_data_then_urls_avaialble_event_is_not_emitted(
+    def test_given_urls_are_not_in_relation_data_when_relation_changed_event_then_urls_avaialble_event_is_not_emitted(
         self, mock_urls_available_event
     ):
-        self.harness.set_leader(True)
         relation_id = self.harness.add_relation("grafana-auth", "requirer")
         self.harness.add_relation_unit(relation_id, "requirer/0")
         self.harness.update_relation_data(relation_id, "requirer", {})
@@ -146,10 +142,9 @@ class TestDefaultGrafanaAuthProxyProvider(unittest.TestCase):
         f"{CHARM_LIB_PATH}.AuthProviderCharmEvents.urls_available",
         new_callable=PropertyMock,
     )
-    def test_given_pebble_ready_event_when_urls_are_not_in_relation_data_then_urls_avaialble_event_is_not_emitted(
+    def test_given_urls_are_not_in_relation_data_when_pebble_ready_event_then_urls_avaialble_event_is_not_emitted(
         self, mock_urls_available_event
     ):
-        self.harness.set_leader(True)
         relation_id = self.harness.add_relation("grafana-auth", "requirer")
         self.harness.add_relation_unit(relation_id, "requirer/0")
         self.harness.container_pebble_ready("auth-tester")
@@ -167,13 +162,13 @@ class ProviderNonDefaultCharm(CharmBase):
 class TestNonDefaultGrafanaAuthProxyProvider(unittest.TestCase):
     def setUp(self):
         self.harness = testing.Harness(ProviderNonDefaultCharm, meta=METADATA)
+        self.harness.set_leader(True)
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()
 
-    def test_given_auth_relation_joined_event_when_unit_is_leader_then_auth_config_is_set_in_relation_data(
+    def test_given_unit_is_leader_when_auth_relation_joined_event_then_auth_config_is_set_in_relation_data(
         self,
     ):
-        self.harness.set_leader(True)
         relation_id = self.harness.add_relation("grafana-auth", "requirer")
         self.harness.add_relation_unit(relation_id, "requirer/0")
         relation_data = self.harness.get_relation_data(relation_id, self.harness.model.app.name)
@@ -203,10 +198,9 @@ class TestMissingModeProvider(unittest.TestCase):
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()
 
-    def test_given_auth_relation_joined_event_when_auth_config_is_missing_then_auth_config_is_not_set_in_relation_data(
+    def test_given_auth_config_is_missing_when_auth_relation_joined_event_then_auth_config_is_not_set_in_relation_data(
         self,
     ):
-        self.harness.set_leader(True)
         relation_id = self.harness.add_relation("grafana-auth", "requirer")
         self.harness.add_relation_unit(relation_id, "requirer/0")
         relation_data = self.harness.get_relation_data(relation_id, self.harness.model.app.name)

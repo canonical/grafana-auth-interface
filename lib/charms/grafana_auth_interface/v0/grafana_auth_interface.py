@@ -98,7 +98,8 @@ from ops.charm import (
     CharmEvents,
     RelationChangedEvent,
     RelationJoinedEvent,
-    PebbleReadyEvent
+    PebbleReadyEvent,
+    LeaderElectedEvent
 )
 from typing import List, Dict, Any, Union
 
@@ -315,13 +316,16 @@ class AuthProvider(Object):
             refresh_event = self._charm.on[container.name.replace("-", "_")].pebble_ready
             self.framework.observe(refresh_event, self._get_urls_from_relation_data)
         self.framework.observe(
-            charm.on[relationship_name].relation_joined, self._set_auth_config_in_relation_data
+            self._charm.on[relationship_name].relation_joined, self._set_auth_config_in_relation_data
         )
         self.framework.observe(
-            charm.on[relationship_name].relation_changed, self._get_urls_from_relation_data
+            self._charm.on.leader_elected, self._set_auth_config_in_relation_data
+        )
+        self.framework.observe(
+            self._charm.on[relationship_name].relation_changed, self._get_urls_from_relation_data
         )
 
-    def _set_auth_config_in_relation_data(self, event: RelationJoinedEvent) -> None:
+    def _set_auth_config_in_relation_data(self, event: Union[LeaderElectedEvent, RelationJoinedEvent]) -> None:
         """Handler triggered on relation joined event. Adds authentication config to relation data.
         Args:
             event: Juju event
@@ -329,32 +333,6 @@ class AuthProvider(Object):
             None
         """
         if not self._charm.unit.is_leader():
-            event.defer()
-            return
-        if not self._auth_config:
-            logger.warning(
-                "No authentication configuration was given by for application {} , it won't be set in relation {}"
-                .format(self.model.app, event.relation.id)
-            )
-            return
-        if not self._validate_auth_config_json_schema():
-            logger.warning(
-                "Authentication configuration provided by application {} did not pass JSON schema validation, it won't be set in relation {}"
-                .format(self.model.app, event.relation.id)
-            )
-        relation_data = event.relation.data[self._charm.app]
-        relation_data[AUTH] = json.dumps(self._auth_config)
-
-    def _get_urls_from_relation_data(self,event: Union[PebbleReadyEvent, RelationChangedEvent]) -> None:
-        """Handler triggered on relation changed events. 
-        Extracts urls from relation data and emits the urls_available event
-        Args:
-            event: Juju event
-        Returns:
-            None
-        """
-        if not self._charm.unit.is_leader():
-            event.defer()
             return
 
         relation = self._charm.model.get_relation(self._relationship_name)
@@ -362,8 +340,41 @@ class AuthProvider(Object):
             logger.warning(
                 "Relation {} has not been created yet".format(self._relationship_name)
             )
+            event.defer()
             return
-        print(relation)
+
+        if not self._auth_config:
+            logger.warning(
+                "No authentication configuration was given by for application {} , it won't be set in relation {}"
+                .format(self.model.app, relation.id)
+            )
+            return
+        if not self._validate_auth_config_json_schema():
+            logger.warning(
+                "Authentication configuration provided by application {} did not pass JSON schema validation, it won't be set in relation {}"
+                .format(self.model.app, relation.id)
+            )
+        relation_data = relation.data[self._charm.app]
+        relation_data[AUTH] = json.dumps(self._auth_config)
+
+    def _get_urls_from_relation_data(self,event: Union[PebbleReadyEvent, RelationChangedEvent]) -> None:
+        """Handler triggered on relation changed and pebble_ready events. 
+        Extracts urls from relation data and emits the urls_available event
+        Args:
+            event: Juju event
+        Returns:
+            None
+        """
+        if not self._charm.unit.is_leader():
+            return
+
+        relation = self._charm.model.get_relation(self._relationship_name)
+        if not relation:
+            logger.warning(
+                "Relation {} has not been created yet".format(self._relationship_name)
+            )
+            event.defer()
+            return
         urls_json = relation.data[relation.app].get("urls", "")  # type: ignore
         if not urls_json:
             logger.warning(
@@ -434,13 +445,16 @@ class AuthRequirer(Object):
             refresh_event = self._charm.on[container.name.replace("-", "_")].pebble_ready
             self.framework.observe(refresh_event, self._get_auth_config_from_relation_data)
         self.framework.observe(
-            charm.on[relationship_name].relation_changed, self._get_auth_config_from_relation_data
+            self._charm.on[relationship_name].relation_changed, self._get_auth_config_from_relation_data
         )
         self.framework.observe(
-            charm.on[relationship_name].relation_joined, self._set_urls_in_relation_data
+            self._charm.on[relationship_name].relation_joined, self._set_urls_in_relation_data
+        )
+        self.framework.observe(
+            self._charm.on.leader_elected, self._set_urls_in_relation_data
         )
 
-    def _set_urls_in_relation_data(self, event: RelationJoinedEvent) -> None:
+    def _set_urls_in_relation_data(self, event: Union[LeaderElectedEvent, RelationJoinedEvent]) -> None:
         """Handler triggered on relation joined events. Adds URL(s) to relation data.
         Args:
             event: Juju event
@@ -448,12 +462,20 @@ class AuthRequirer(Object):
             None
         """
         if not self._charm.unit.is_leader():
+            return
+
+        relation = self._charm.model.get_relation(self._relationship_name)
+        if not relation:
+            logger.warning(
+                "Relation {} has not been created yet".format(self._relationship_name)
+            )
             event.defer()
             return
+
         if not self._urls:
             logger.warning(
                 "No urls were given for application {}, urls won't be set in relation {}"
-                .format(self.model.app, event.relation.id)
+                .format(self.model.app, relation.id)
             )
             return
         try:
@@ -461,21 +483,21 @@ class AuthRequirer(Object):
         except:
             logger.warning(
                 "urls provided by application {} did not pass JSON schema validation, urls won't be set in relation {}"
-                .format(self.model.app, event.relation.id)
+                .format(self.model.app, relation.id)
             )
             return
-        relation_data = event.relation.data[self._charm.app]
+        relation_data = relation.data[self._charm.app]
         relation_data["urls"] = json.dumps(self._urls)
 
     def _get_auth_config_from_relation_data(self, event: Union[PebbleReadyEvent, RelationChangedEvent]) -> None:
-        """Extracts authentication config from relation data and emits an event that contains the config.
+        """Handler triggered on relation changed and pebble_ready events.
+        Extracts authentication config from relation data and emits an event that contains the config.
         Args:
             event: Juju event
         Returns:
             None
         """
         if not self._charm.unit.is_leader():
-            event.defer()
             return
         
         relation = self._charm.model.get_relation(self._relationship_name)

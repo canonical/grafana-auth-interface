@@ -60,11 +60,19 @@ class MockRelation:
         pass
 
 
+class MockOn(dict):
+    @property
+    def leader_elected(self):
+        pass
+
+
 class TestAuthProvider(unittest.TestCase):
     def setUp(self):
         self.charm = Mock()
         self.charm.meta.containers = {"containers": MockContainerMeta()}
-        self.charm.on = {RELATIONSHIP_NAME: MockRelation(), EXAMPLE_CONTAINER_NAME: MockRelation()}
+        self.charm.on = MockOn(
+            {RELATIONSHIP_NAME: MockRelation(), EXAMPLE_CONTAINER_NAME: MockRelation()}
+        )
         self.provider_unit = UnitMock(name=PROVIDER_UNIT_NAME)
         self.provider_app = AppMock(name=PROVIDER_APP_NAME)
         self.requirer_app = AppMock(name=REQUIRER_APP_NAME)
@@ -75,6 +83,8 @@ class TestAuthProvider(unittest.TestCase):
             charm=self.charm,
         )
         self.charm.framework.model.app = self.provider_app
+        self.model = Mock()
+        self.model.app = self.provider_app
 
     def test_given_auth_mode_config_and_unit_is_leader_when_auth_relation_joined_then_auth_conf_is_set_in_relation_databag(
         self,
@@ -89,12 +99,14 @@ class TestAuthProvider(unittest.TestCase):
             }
         }
         event = Mock()
-        event.relation.id = 1
-        event.relation.data = {
+        relation = Mock()
+        relation.data = {
             self.provider_app: {},
         }
+        relation.id = 1
+        self.charm.model.get_relation.return_value = relation
         self.grafana_auth_provider._set_auth_config_in_relation_data(event)
-        actual_conf_dict = json.loads(event.relation.data[self.provider_app].get("auth"))
+        actual_conf_dict = json.loads(relation.data[self.provider_app].get("auth"))
         self.assertDictEqual(expected_conf_dict, actual_conf_dict)
 
     def test_given_auth_mode_config_and_unit_is_not_leader_when_auth_relation_joined_then_auth_conf_is_not_set_in_relation_databag(
@@ -189,7 +201,9 @@ class TestAuthRequires(unittest.TestCase):
         self.requirer_app = AppMock(name=REQUIRER_APP_NAME)
         self.charm = Mock()
         self.charm.meta.containers = {"containers": MockContainerMeta()}
-        self.charm.on = {RELATIONSHIP_NAME: MockRelation(), EXAMPLE_CONTAINER_NAME: MockRelation()}
+        self.charm.on = MockOn(
+            {RELATIONSHIP_NAME: MockRelation(), EXAMPLE_CONTAINER_NAME: MockRelation()}
+        )
         self.charm.unit = self.requirer_unit
         self.charm.app = self.requirer_app
         self.charm.model = Mock()
@@ -203,12 +217,14 @@ class TestAuthRequires(unittest.TestCase):
     ):
         self.requirer_unit.set_leader(True)
         event = Mock()
-        event.relation.id = 1
-        event.relation.data = {
+        relation = Mock()
+        relation.data = {
             self.requirer_app: {},
         }
+        relation.id = 1
+        self.charm.model.get_relation.return_value = relation
         self.auth_requirer._set_urls_in_relation_data(event)
-        actual_urls = json.loads(event.relation.data[self.requirer_app].get("urls"))
+        actual_urls = json.loads(relation.data[self.requirer_app].get("urls"))
         self.assertEqual(EXAMPLE_URLS, actual_urls)
 
     def test_given_unit_is_not_leader_when_auth_relation_joined_then_urls_are_not_set_in_auth_relation_databag(

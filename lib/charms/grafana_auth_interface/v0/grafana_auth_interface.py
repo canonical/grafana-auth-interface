@@ -308,7 +308,7 @@ class AuthProvider(Object):
 
     def __init__(self, charm: CharmBase, relationship_name: str):
         super().__init__(charm, relationship_name)
-        self._auth_config = None
+        self._auth_config = {}  # type: Dict[str, Dict[str, Any]]
         self._charm = charm
         self._relationship_name = relationship_name
         container = list(self._charm.meta.containers.values())[0]
@@ -340,7 +340,6 @@ class AuthProvider(Object):
             logger.warning(
                 "Relation {} has not been created yet".format(self._relationship_name)
             )
-            event.defer()
             return
 
         if not self._auth_config:
@@ -373,7 +372,6 @@ class AuthProvider(Object):
             logger.warning(
                 "Relation {} has not been created yet".format(self._relationship_name)
             )
-            event.defer()
             return
         urls_json = relation.data[relation.app].get("urls", "")  # type: ignore
         if not urls_json:
@@ -469,7 +467,6 @@ class AuthRequirer(Object):
             logger.warning(
                 "Relation {} has not been created yet".format(self._relationship_name)
             )
-            event.defer()
             return
 
         if not self._urls:
@@ -559,7 +556,7 @@ class GrafanaAuthProxyProvider(AuthProvider):
             None
         """
         super().__init__(charm, relationship_name)
-        config_options = { }
+        config_options = {}  # type: Dict[str,Any]
         config_options["enabled"] = self._ENABLED
         config_options["header_name"] = header_name
         config_options["header_property"] = header_property

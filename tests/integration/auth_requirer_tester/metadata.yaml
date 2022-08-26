@@ -1,0 +1,20 @@
+# Copyright 2022 Canonical Ltd.
+# See LICENSE file for licensing details.
+name: auth-requirer-tester
+description: |
+  A charm to test the authentication configuration requirer in grafana-auth library
+summary: |
+  A charm to test the authentication configuration requirer in grafana-auth library
+requires:
+  grafana-auth:
+    interface: grafana_auth
+
+containers:
+  auth-requirer-tester:
+    resource: auth-requirer-tester-image
+
+resources:
+  auth-requirer-tester-image:
+    type: oci-image
+    description: upstream docker image for auth-requirer-tester
+    upstream-source: python:slim

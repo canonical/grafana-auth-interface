@@ -6,10 +6,9 @@ import json
 import unittest
 from unittest.mock import PropertyMock, call, patch
 
+from charms.grafana_auth_interface.v0.grafana_auth_interface import AuthRequirer
 from ops import testing
 from ops.charm import CharmBase
-
-from lib.charms.grafana_auth_interface.v0.grafana_auth_interface import AuthRequirer
 
 testing.SIMULATE_CAN_CONNECT = True
 
@@ -22,7 +21,7 @@ requires:
     interface: grafana_auth
 """
 
-CHARM_LIB_PATH = "lib.charms.grafana_auth_interface.v0.grafana_auth_interface"
+CHARM_LIB_PATH = "charms.grafana_auth_interface.v0.grafana_auth_interface"
 
 EXAMPLE_URLS = ["www.example.com"]
 EXAMPLE_AUTH_CONF = {

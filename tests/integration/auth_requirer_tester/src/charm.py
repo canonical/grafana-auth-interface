@@ -6,11 +6,10 @@
 
 import logging
 
+from charms.grafana_auth_interface.v0.grafana_auth_interface import AuthRequirer
 from ops.charm import CharmBase
 from ops.main import main
 from ops.model import ActiveStatus, WaitingStatus
-
-from lib.charms.grafana_auth_interface.v0.grafana_auth_interface import AuthRequirer
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +20,17 @@ class AuthRequirerTesterCharm(CharmBase):
         self.container = self.unit.get_container("auth-requirer-tester")
         self.grafana_auth_proxy_provider = AuthRequirer(self, urls=["https://wwww.example.com"])
         self.framework.observe(
-            self.grafana_auth_proxy_provider.on.auth_config_available,
+            self.grafana_auth_proxy_provider.on.auth_conf_available,
             self._on_auth_config_available,
         )
+        self.framework.observe(self.on.auth_requirer_tester_pebble_ready, self._on_pebble_ready)
+
+    def _on_pebble_ready(self, event):
+        if not self.container.can_connect():
+            self.unit.status = WaitingStatus("Waiting for the container to be ready")
+            event.defer()
+            return
+        self.unit.status = ActiveStatus()
 
     def _on_auth_config_available(self, event):
         if not event.auth:

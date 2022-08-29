@@ -49,9 +49,7 @@ class TestAuthLib:
             "tests/integration/auth_provider_tester/", PROVIDER_CHARM_NAME
         )
         if not provider_charm:
-            provider_charm = await ops_test.build_charm(
-                "tests/integration/auth_provider_tester/"
-            )
+            provider_charm = await ops_test.build_charm("tests/integration/auth_provider_tester/")
         resources = {
             f"{PROVIDER_CHARM_NAME}-image": PROVIDER_METADATA["resources"][
                 f"{PROVIDER_CHARM_NAME}-image"
@@ -72,9 +70,7 @@ class TestAuthLib:
             "tests/integration/auth_requirer_tester/", REQUIRER_CHARM_NAME
         )
         if not requirer_charm:
-            requirer_charm = await ops_test.build_charm(
-                "tests/integration/auth_requirer_tester/"
-            )
+            requirer_charm = await ops_test.build_charm("tests/integration/auth_requirer_tester/")
         resources = {
             f"{REQUIRER_CHARM_NAME}-image": REQUIRER_METADATA["resources"][
                 f"{REQUIRER_CHARM_NAME}-image"

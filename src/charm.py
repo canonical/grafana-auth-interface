@@ -2,7 +2,7 @@
 # Copyright 2022 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-"""Contains a palceholder dummy charm."""
+"""Contains a placeholder dummy charm."""
 
 from ops.charm import CharmBase
 

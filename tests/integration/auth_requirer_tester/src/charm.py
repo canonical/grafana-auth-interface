@@ -2,14 +2,15 @@
 # Copyright 2022 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-"""A charm to functionally test the auth provider in gafana-auth library."""
+"""A charm to functionally test the auth provider in grafana-auth library."""
 
 import logging
 
-from charms.grafana_auth_interface.v0.grafana_auth_interface import AuthRequirer
 from ops.charm import CharmBase
 from ops.main import main
 from ops.model import ActiveStatus, WaitingStatus
+
+from lib.charms.grafana_auth_interface.v0.grafana_auth_interface import AuthRequirer
 
 logger = logging.getLogger(__name__)
 

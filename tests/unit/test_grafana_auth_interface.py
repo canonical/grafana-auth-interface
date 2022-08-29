@@ -6,7 +6,7 @@ import json
 import unittest
 from unittest.mock import Mock, PropertyMock, call, patch
 
-from charms.grafana_auth_interface.v0.grafana_auth_interface import (
+from lib.charms.grafana_auth_interface.v0.grafana_auth_interface import (
     AuthRequirer,
     GrafanaAuthProxyProvider,
 )
@@ -15,7 +15,7 @@ PROVIDER_UNIT_NAME = "leader unit provider"
 REQUIRER_UNIT_NAME = "leader unit requirer"
 PROVIDER_APP_NAME = "provider app"
 REQUIRER_APP_NAME = "requirer app"
-CHARM_LIB_PATH = "charms.grafana_auth_interface.v0.grafana_auth_interface"
+CHARM_LIB_PATH = "lib.charms.grafana_auth_interface.v0.grafana_auth_interface"
 AUTH_TYPE = "proxy"
 HEADER_NAME = "X-WEBAUTH-USER"
 HEADER_PROPERTY = "username"

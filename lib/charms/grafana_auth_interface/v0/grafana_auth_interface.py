@@ -268,10 +268,7 @@ def _type_convert_stored(obj):
     if isinstance(obj, StoredList):
         return list(map(_type_convert_stored, obj))
     elif isinstance(obj, StoredDict):
-        rdict = {}  # type: Dict[Any, Any]
-        for k in obj.keys():
-            rdict[k] = _type_convert_stored(obj[k])
-        return rdict
+        return {k: _type_convert_stored(obj[k]) for k in obj.keys()}
     else:
         return obj
 
